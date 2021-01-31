@@ -8,23 +8,20 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Linq;
+using ParticleLib.Models.Entities;
 
 namespace TestParticle
 {
     public partial class Form1 : Form
     {
         System.Drawing.Graphics graphics;
-        BackgroundWorker _renderWorker;
-        ThreadSafeRandom r;
-        //List<ParticleLib.Models.Particle> particles = new List<ParticleLib.Models.Particle>();
         ParticleEmitter particleEmitter = new ParticleEmitter();
-        ParticleSpace2D particleSpace;
+        ParticleSpace2D<BaseEntity<ITimesteppableLocationEntity>> particleSpace;
         Point size;
         public Form1()
         {
             FormBorderStyle = FormBorderStyle.None;
             WindowState = FormWindowState.Maximized;
-            r = new ThreadSafeRandom();
             size = new Point(1000, 1000); 
             this.DoubleBuffered = true;
             graphics = this.CreateGraphics();
@@ -32,7 +29,7 @@ namespace TestParticle
             Application.Idle += Application_Idle;
             SetupKeyboardHooks();
             particleEmitter.location = new Point(250, 200);
-            particleSpace = new ParticleSpace2D(PointF.Empty, new PointF(size.X, size.Y));
+            particleSpace = new ParticleSpace2D<BaseEntity<ITimesteppableLocationEntity>>(PointF.Empty, new PointF(size.X, size.Y));
             _flameImg = new Bitmap("Assets\\Images\\Spark.png");
         }
 
@@ -66,20 +63,7 @@ namespace TestParticle
                     EmitParticle(new Point(size.X / 2, size.Y / 2), 100);
                 }
             }
-            //if (e.KeyboardData.VirtualCode == (int)Keys.A && e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyDown)
-            //{
-            //    if (!PressedKeys.ContainsKey(Keys.A))
-            //        PressedKeys.Add(Keys.A, true);
-            //}
-            //if (e.KeyboardData.VirtualCode == (int)Keys.W && e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyDown)
-            //{
-            //}
-            //if (e.KeyboardData.VirtualCode == (int)Keys.D && e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyDown)
-            //{
-            //}
-            //if (e.KeyboardData.VirtualCode == (int)Keys.S && e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyDown)
-            //{
-            //}
+
             lock(_pklock)
             if(!PressedKeys.ContainsKey((Keys)e.KeyboardData.VirtualCode))
                 PressedKeys.Add((Keys)e.KeyboardData.VirtualCode, false);
@@ -87,11 +71,6 @@ namespace TestParticle
 
             if (e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyUp)
                 PressedKeys[(Keys)e.KeyboardData.VirtualCode] = false;
-            
-            //if (e.KeyboardData.VirtualCode == (int)Keys.LControlKey && e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyDown)
-            //{
-            //    particleSpace.ProcessSubspace();
-            //}
         }
 
         private void Application_Idle(object sender, EventArgs e)
@@ -125,7 +104,24 @@ namespace TestParticle
 
         private void doWorldEvents()
         {
-            
+            CheckKeyPresses();
+
+            ProcessEntities();
+        }
+
+        private void ProcessEntities()
+        {
+            var relativePoint = this.PointToClient(Cursor.Position);
+            var particles = particleSpace.GetParticles();
+            var diff = DateTime.UtcNow.Ticks / 1000 - ms;
+            var focus = (size.X - (size.X * relativePoint.X / 1000f), size.Y - (size.Y * (relativePoint.Y / 1000f)));
+            particleSpace.ProcessTimestep<BaseEntity<ITimesteppableLocationEntity>>(diff, focus, (size.X, size.Y));
+            //var toSplit = particleSpace.GetParticles().Where(p => p.duration <= 0).ToList();
+            //toSplit.ForEach(p => { p.isDead = true; if (p.splitCount > 0) EmitParticle(p); });
+        }
+
+        private void CheckKeyPresses()
+        {
             if (PressedKeys.ContainsKey(Keys.W) && PressedKeys[Keys.W] == true)
                 particleEmitter.SetLocation((particleEmitter.location.X), (particleEmitter.location.Y - 1 * stepSize * 500));
             if (PressedKeys.ContainsKey(Keys.S) && PressedKeys[Keys.S] == true)
@@ -134,48 +130,17 @@ namespace TestParticle
                 particleEmitter.SetLocation((particleEmitter.location.X - 1 * stepSize * 500), (particleEmitter.location.Y));
             if (PressedKeys.ContainsKey(Keys.D) && PressedKeys[Keys.D] == true)
                 particleEmitter.SetLocation((particleEmitter.location.X + 1 * stepSize * 500), (particleEmitter.location.Y));
-
-
-
-            //if (particles.Count == 0)
-            //    EmitParticle();
-
-            var relativePoint = this.PointToClient(Cursor.Position);
-            var particles = particleSpace.GetParticles();
-            var diff = DateTime.UtcNow.Ticks / 1000 - ms;
-            //Parallel.ForEach(particles, particle =>
-            //{
-            //    var wasDead = particle.duration <= 0;
-            //    //particle.ProcessTimestep(diff, relativePoint);
-            //    //particleSpace.UpdateParticle(particle, wasDead);
-            //});
-            particleSpace.ProcessTimestep(diff, (size.X - (size.X*(relativePoint.X)/1000f) , size.Y - (size.X * (relativePoint.Y / 1000f))), size);
-            //particles.RemoveAll(p => p.isDead);
-            var toSplit = particleSpace.GetParticles().Where(p => p.duration <= 0).ToList();
-            toSplit.ForEach(p => { p.isDead = true; if (p.splitCount > 0) EmitParticle(p); });
         }
+
         float stepSize = .001f;
-        private void EmitParticle(Particle from)
+        private void EmitParticle(ParticleEntity from)
         {
-            var emittedParticle = particleEmitter.EmitParticle(ref particleSpace, new PointF((float)(from.dimenisons[0].pos + (ThreadSafeRandom.Next_s() - .5)), (float)(from.dimenisons[1].pos + (ThreadSafeRandom.Next_s() - .5))), new PointF((float)(ThreadSafeRandom.Next_s() - .5), 0), new PointF(from.dimenisons[0].vel, from.dimenisons[1].vel), size, from.splitCount - 1, true, stepSize);
-            var emittedParticle2 = particleEmitter.EmitParticle(ref particleSpace, new PointF((float)(from.dimenisons[0].pos + (ThreadSafeRandom.Next_s() - .5)), (float)(from.dimenisons[1].pos + (ThreadSafeRandom.Next_s() - .5))), new PointF(0, (float)(ThreadSafeRandom.Next_s() - .5)), new PointF(from.dimenisons[0].vel, from.dimenisons[1].vel), size, from.splitCount - 1, true, stepSize);
-
-            //if (emittedParticle != null)
-            //    particleSpace.AddParticle(emittedParticle);
-            //if (emittedParticle2 != null)
-            //    particleSpace.AddParticle(emittedParticle2);
-        }
-
-        private void EmitParticle()
-        {
-            var relativePoint = this.PointToClient(Cursor.Position);
-            var emittedParticle = particleEmitter.EmitParticle(ref particleSpace, relativePoint, Point.Empty, Point.Empty, size, 0, stepSize: stepSize, particleSize: ThreadSafeRandom.Next(.01f, .5f, true));
-            //if (emittedParticle != null)
-            //    particleSpace.AddParticle(emittedParticle);
+            particleEmitter.EmitParticle(ref particleSpace, new PointF((float)(from.dimenisons[0].pos + (ThreadSafeRandom.Next_s() - .5)), (float)(from.dimenisons[1].pos + (ThreadSafeRandom.Next_s() - .5))), new PointF((float)(ThreadSafeRandom.Next_s() - .5), 0), new PointF(from.dimenisons[0].vel, from.dimenisons[1].vel), size, from.splitCount - 1, true, stepSize);
+            particleEmitter.EmitParticle(ref particleSpace, new PointF((float)(from.dimenisons[0].pos + (ThreadSafeRandom.Next_s() - .5)), (float)(from.dimenisons[1].pos + (ThreadSafeRandom.Next_s() - .5))), new PointF(0, (float)(ThreadSafeRandom.Next_s() - .5)), new PointF(from.dimenisons[0].vel, from.dimenisons[1].vel), size, from.splitCount - 1, true, stepSize);
         }
         private void EmitParticle(Point at, float particleSize)
         {
-            var emittedParticle = particleEmitter.EmitParticle(ref particleSpace, at, Point.Empty, Point.Empty, size, 0, true, stepSize, particleSize);
+            particleEmitter.EmitParticle(ref particleSpace, at, Point.Empty, Point.Empty, size, 0, true, stepSize, particleSize);
         }
 
         long ms = DateTime.UtcNow.Ticks/1000;
@@ -196,18 +161,11 @@ namespace TestParticle
                 var parts = particles.ToList();
                 foreach (var particle in parts)
                 {
-                    if(particle.mass > 0)
                     //buffer.Graphics.FillEllipse(Brushes.Black, new Rectangle((int)particle.dimenisons[0].pos, (int)particle.dimenisons[1].pos, ((int)(particle.mass * 100)) / 10, ((int)(particle.mass * 100)) / 10));
                       buffer.Graphics.DrawImage(_flameImg, new RectangleF(1000*(size.X - (particle.Rect.X))/size.X, 1000*(size.Y - (particle.Rect.Y))/size.Y, particle.Rect.Width * 10, particle.Rect.Height * 10));
                 }
 
-                var rectangles = particleSpace.GetRects(true);
-                //var parts = particleSpace.GetParticles();
-                //foreach (var particle in parts)
-                //{
-                //    buffer.Graphics.FillEllipse(Brushes.Black, new Rectangle((int)particle.dimenisons[0].pos, (int)particle.dimenisons[1].pos, ((int)(particle.mass * 100)) / 10, ((int)(particle.mass * 100)) / 10));
-                //    //buffer.Graphics.DrawImage(_flameImg, new Rectangle((int)particle.dimenisons[0].pos, (int)particle.dimenisons[1].pos, ((int)(particle.mass * 100)) / 10, ((int)(particle.mass * 100)) / 10));
-                //}
+                var rectangles = particleSpace.GetRects();
                 foreach (var rect in rectangles)
                 {
                     buffer.Graphics.DrawRectangle(Pens.Black, new Rectangle((int)rect.X, (int)rect.Y, (int)(rect.Width - rect.X), (int)(rect.Height - rect.Y)));

@@ -22,20 +22,6 @@ namespace ParticleLib.Models
                 _local = new Random(seed);
             }
         }
-        //public float Next()
-        //{
-        //    if (_local == null)
-        //    {
-        //        int seed;
-        //        lock (_global)
-        //        {
-        //            seed = _global.Next();
-        //        }
-        //        _local = new Random(seed);
-        //    }
-
-        //    return (float)_local.NextDouble();
-        //}
 
         public static bool Next_b()
         {

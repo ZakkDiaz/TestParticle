@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ParticleLib.Models.Entities;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
@@ -32,78 +33,95 @@ namespace ParticleLib.Models
             acc += val;
         }
 
-        public void ProcessTimestep(float stepSize, float mass, Point BOUNDS)
+        internal void AddVel(float v)
         {
-            ProcessRotation(stepSize, mass);
-            ProcessPosition(stepSize, mass, BOUNDS);
+            vel += v;
         }
 
-        private void ProcessRotation(float stepSize, float mass)
+        internal void SetVel(float v)
         {
-            if (rac != 0)
+            vel = v;
+        }
+    }
+    public static class DimensionPropertyExtensions
+    {
+        public static void ProcessTimestep(this DimensionProperty entity, float stepSize, float mass, (int, int) BOUNDS)
+        {
+            entity.ProcessRotation(stepSize, mass);
+            entity.ProcessPosition(stepSize, mass, BOUNDS);
+        }
+
+        private static void ProcessRotation(this DimensionProperty entity, float stepSize, float mass)
+        {
+            if (entity.rac != 0)
             {
                 var mltSs = stepSize * 10;
-                var p = rac > 0 ? 1 : -1;
-                var amt = (Math.Abs(rac) > mltSs ? mltSs : Math.Abs(rac)) * p;
-                rot += amt / mass;
-                rac -= amt;
+                var p = entity.rac > 0 ? 1 : -1;
+                var amt = (Math.Abs(entity.rac) > mltSs ? mltSs : Math.Abs(entity.rac)) * p;
+                entity.rot += amt / mass;
+                entity.rac -= amt;
             }
         }
 
-        private void ProcessPosition(float stepSize, float mass, Point BOUNDS)
+        private static void ProcessPosition(this DimensionProperty entity, float stepSize, float mass, (int, int) BOUNDS)
         {
-            if (acc != 0)
+            if (entity.acc != 0)
             {
 
-                var p = acc > 0 ? 1 : -1;
-                var amt = (Math.Abs(acc) > stepSize ? stepSize : Math.Abs(acc)) * p;
-                vel += (amt) / mass;
-                acc -= amt;
+                var p = entity.acc > 0 ? 1 : -1;
+                var amt = (Math.Abs(entity.acc) > stepSize ? stepSize : Math.Abs(entity.acc)) * p;
+                entity.vel += (amt) / mass;
+                entity.acc -= amt;
             }
 
-            pos += vel;
-            if (pos > BOUNDS.X)
+            entity.pos += entity.vel;
+            if (entity.pos > BOUNDS.Item1)
             {
-                pos = 0;
+                entity.pos = 0;
             }
-            if (pos < 0)
+            if (entity.pos < 0)
             {
-                pos = BOUNDS.Y;
+                entity.pos = BOUNDS.Item2;
             }
         }
 
-        internal void ProcessEntanglements(float stepSize, DimensionProperty item2, (float, float) target, bool isSeeking = false)
+        internal static void AddRot(this DimensionProperty entity, float y)
         {
-            var velocity = Math.Sqrt(Math.Pow(item2.vel, 2) + Math.Pow(this.vel, 2));
-            var angle = Math.Atan2(item2.vel, vel);
-            angle += (rot + item2.rot) * stepSize;
+            entity.rac += y;
+        }
+        internal static void SetRot(this DimensionProperty entity, float y)
+        {
+            entity.rot = 0;
+            entity.rac = y;
+        }
+        internal static void ProcessEntanglements(this DimensionProperty entity, float stepSize, DimensionProperty item2, (float, float) target, bool isSeeking = false)
+        {
+            var velocity = Math.Sqrt(Math.Pow(item2.vel, 2) + Math.Pow(entity.vel, 2));
+            var angle = Math.Atan2(item2.vel, entity.vel);
+            angle += (entity.rot + item2.rot) * stepSize;
             var na1 = velocity * Math.Cos(angle);
             var na2 = velocity * Math.Sin(angle);
 
 
-            vel = (float)na1;
+            entity.vel = (float)na1;
             item2.vel = (float)na2;
 
             if (isSeeking)
             {
-                var angleToTarg = Particle.AngleFor((this.pos, item2.pos), target);
-                var angDiff = angle-angleToTarg - (45 * Math.PI/180);
+                var angleToTarg = item2.AngleFor(entity, target);
+                var angDiff = angle - angleToTarg - (45 * Math.PI / 180);
                 var ac1 = Math.Cos(angDiff);
                 var ac2 = Math.Sin(angDiff);
                 var forceMult = 1;
-                SetRot((float)(-ac1* forceMult)); 
-                item2.SetRot((float)(-ac2* forceMult));
+                entity.SetRot((float)(-ac1 * forceMult));
+                item2.SetRot((float)(-ac2 * forceMult));
             }
         }
 
-        internal void AddRot(float y)
+        internal static float AngleFor(this DimensionProperty entity, DimensionProperty other, (float X, float Y) to)
         {
-            rac += y;
+            return MathExtensions.AngleFor((to.Y - other.pos), (to.X - entity.pos));
         }
-        internal void SetRot(float y)
-        {
-            rot = 0;
-            rac = y;
-        }
+
     }
 }
