@@ -34,7 +34,7 @@ namespace StaticTree
             var count = 100;
             for (var i = 0; i < count; i++)
             {
-                var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * width), (float)(r.NextDouble() * height), (float)(r.NextDouble() * depth));
+                var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * width), (float)(r.NextDouble() * height), (float)(r.NextDouble() * depth), false);
                 octree.Add(locationToAdd);
             }
 

@@ -8,7 +8,7 @@ namespace ParticleLib.Models._3D
     {
         public NodeCollection* Children;
         public OctreeNode?* Parent; // optional
-        public UInt32 LocCode;
+        public ulong LocCode;
         public Byte ChildExists;
         public NodeType NodeType { get; set; }
         public IntPtr ObjPtr { get; set; }
@@ -35,7 +35,8 @@ namespace ParticleLib.Models._3D
     public enum NodeType
     {
         None = 0,
-        Location = 1
+        Location = 1,
+        Layer = 2
     }
 
     public struct NodeCollection
@@ -52,11 +53,36 @@ namespace ParticleLib.Models._3D
 
     public class NodeTypeLocation3D
     {
+        private bool islayer = false;
+        private bool isoverflow = false;
+        private static int _maxSize = 10;
         public (float, float, float) Location;
         public static NodeType Identity { get; set; } = NodeType.Location;
-        public NodeTypeLocation3D(float x, float y, float z)
+        public List<NodeTypeLocation3D> ChildLocationItems { get; set; }
+        public bool IsLayer => islayer;
+
+        public NodeTypeLocation3D(float x, float y, float z, bool isLayer)
         {
+            islayer = isLayer;
             Location = (x, y, z);
+            if (isLayer)
+            { ChildLocationItems = new List<NodeTypeLocation3D>(); }
+        }
+
+        public void Add(NodeTypeLocation3D item)
+        {
+            ChildLocationItems.Add(item);
+        }
+
+        public bool Full()
+        {
+            return isoverflow || !this.islayer || ChildLocationItems.Count >= _maxSize;
+        }
+
+        internal void ClearChildren()
+        {
+            ChildLocationItems = new List<NodeTypeLocation3D>();
+            isoverflow = true;
         }
     }
 

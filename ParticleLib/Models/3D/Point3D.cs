@@ -35,6 +35,11 @@ namespace ParticleLib.Models._3D
             return new Point3D(point.X / scalar, point.Y / scalar, point.Z / scalar);
         }
 
+        public static Point3D operator *(Point3D point, float scalar)
+        {
+            return new Point3D(point.X * scalar, point.Y * scalar, point.Z * scalar);
+        }
+
         public float X { get; set; } = 0;
         public float Y { get; set; } = 0;
         public float Z { get; set; } = 0;
