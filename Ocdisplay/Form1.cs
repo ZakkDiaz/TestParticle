@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -21,6 +22,8 @@ namespace Ocdisplay
         bool _init = false;
         Octree _octree;
         int depth = 1000;
+
+        BackgroundWorker adder;
         public Form1()
         {
             InitializeComponent();
@@ -29,6 +32,69 @@ namespace Ocdisplay
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
             this.Paint += Form1_Paint;
+
+            adder = new BackgroundWorker();
+            adder.DoWork += Adder_DoWork;
+            adder.RunWorkerAsync();
+            Application.Idle += HandleApplicationIdle;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct NativeMessage
+        {
+            public IntPtr Handle;
+            public uint Message;
+            public IntPtr WParameter;
+            public IntPtr LParameter;
+            public uint Time;
+            public Point Location;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern int PeekMessage(out NativeMessage message, IntPtr window, uint filterMin, uint filterMax, uint remove);
+
+        bool IsApplicationIdle()
+        {
+            NativeMessage result;
+            return PeekMessage(out result, IntPtr.Zero, (uint)0, (uint)0, (uint)0) == 0;
+        }
+
+        void HandleApplicationIdle(object sender, EventArgs e)
+        {
+            while (IsApplicationIdle())
+            {
+                Update();
+                if (_outdatedImage)
+                    this.Invalidate();
+
+            }
+        }
+
+        private void Adder_DoWork(object sender, DoWorkEventArgs e)
+        {
+            while(true)
+            {
+                if (!_init)
+                {
+                    Init();
+                }
+
+                for (var i = 0; i < 10; i++)
+                {
+                    var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
+                    //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() *500), (float)(r.NextDouble() *100), (float)(r.NextDouble() * depth), false);
+                    _octree.Add(locationToAdd);
+                }
+                var otSize = _octree.Size();
+                var otDepth = _octree.Depth();
+
+                Bitmap bmp = new Bitmap(this.Width, this.Height);
+                using var g = Graphics.FromImage(bmp);
+                _octree.Draw(g);
+                g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
+                _next = bmp;
+                _outdatedImage = true;
+            }
         }
 
         private void Form1_Paint(object sender, PaintEventArgs e)
