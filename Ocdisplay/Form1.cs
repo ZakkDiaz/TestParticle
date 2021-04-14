@@ -90,7 +90,7 @@ namespace Ocdisplay
 
                 Bitmap bmp = new Bitmap(this.Width, this.Height);
                 using var g = Graphics.FromImage(bmp);
-                _octree.Draw(g);
+                //_octree.Draw(g);
                 g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
                 _next = bmp;
                 _outdatedImage = true;
@@ -139,7 +139,7 @@ namespace Ocdisplay
 
             Bitmap bmp = new Bitmap(this.Width, this.Height);
             using var g = Graphics.FromImage(bmp);
-            _octree.Draw(g);
+            //_octree.Draw(g);
             g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
             _next = bmp;
             _outdatedImage = true;

@@ -43,7 +43,7 @@ namespace StaticTree
 
             Bitmap bmp = new Bitmap(width*2, height * 2);
             using var g = Graphics.FromImage(bmp);
-            octree.Draw(g);
+            //octree.Draw(g);
             g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
             bmp.Save("_output.png");
         }

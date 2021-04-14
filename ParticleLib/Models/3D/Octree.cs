@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Text;
 
 namespace ParticleLib.Models._3D
 {
@@ -83,111 +80,111 @@ namespace ParticleLib.Models._3D
             return depth + maxDepth;
         }
 
-        public void Draw(Graphics g)
-        {
-            var head = OctreeNode;
-            int _drawcount = 0;
-            Draw(g, head, ref _drawcount, 1);
-        }
+        //public void Draw(Graphics g)
+        //{
+        //    var head = OctreeNode;
+        //    int _drawcount = 0;
+        //    Draw(g, head, ref _drawcount, 1);
+        //}
 
-        private void Draw(Graphics g, OctreeNode node, ref int drawCount, int depth)
-        {
-            var center = (_to - _from) / 2;
-            var locCode = node.LocCode;
-            var parentNode = _objRefs[node.ObjPtr] as NodeTypeLocation3D;
-            if (!parentNode.IsLayer)
-                g.FillEllipse(Brushes.Black, new Rectangle((int)parentNode.Location.Item1, (int)parentNode.Location.Item2, 10, 10));
-            else {
-                var layerSize = _to * ((float)(1 / Math.Pow(2, depth)));
-                g.DrawRectangle(Pens.Black, new Rectangle((int)parentNode.Location.Item1 - (int)layerSize.X, (int)parentNode.Location.Item2 - (int)layerSize.Y, 2 * (int)layerSize.X, 2 * (int)layerSize.Y));
-            }
+        //private void Draw(Graphics g, OctreeNode node, ref int drawCount, int depth)
+        //{
+        //    var center = (_to - _from) / 2;
+        //    var locCode = node.LocCode;
+        //    var parentNode = _objRefs[node.ObjPtr] as NodeTypeLocation3D;
+        //    if (!parentNode.IsLayer)
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)parentNode.Location.Item1, (int)parentNode.Location.Item2, 10, 10));
+        //    else {
+        //        var layerSize = _to * ((float)(1 / Math.Pow(2, depth)));
+        //        g.DrawRectangle(Pens.Black, new Rectangle((int)parentNode.Location.Item1 - (int)layerSize.X, (int)parentNode.Location.Item2 - (int)layerSize.Y, 2 * (int)layerSize.X, 2 * (int)layerSize.Y));
+        //    }
 
-            foreach (var cnode in parentNode.ChildLocationItems)
-                DrawNode(g, cnode, parentNode, ref drawCount);
+        //    foreach (var cnode in parentNode.ChildLocationItems)
+        //        DrawNode(g, cnode, parentNode, ref drawCount);
 
-            var collectionItem = _octreeHeap[locCode];
-            if (collectionItem._000.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._000.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_000 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
+        //    var collectionItem = _octreeHeap[locCode];
+        //    if (collectionItem._000.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._000.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_000 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
 
 
-                Draw(g, collectionItem._000.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._001.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._001.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_001 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._001.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._010.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._010.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_010 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._010.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._011.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._011.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_011 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._011.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._100.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._100.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_100 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._100.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._101.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._101.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_101 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._101.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._110.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._110.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_110 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._110.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._111.HasValue)
-            {
-                var _obj = _objRefs[collectionItem._111.Value.ObjPtr] as NodeTypeLocation3D;
-                g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_111 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._111.Value, ref drawCount, depth + 1);
-            }
-        }
+        //        Draw(g, collectionItem._000.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._001.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._001.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_001 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._001.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._010.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._010.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_010 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._010.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._011.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._011.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_011 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._011.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._100.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._100.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_100 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._100.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._101.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._101.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_101 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._101.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._110.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._110.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_110 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._110.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._111.HasValue)
+        //    {
+        //        var _obj = _objRefs[collectionItem._111.Value.ObjPtr] as NodeTypeLocation3D;
+        //        g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_111 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._111.Value, ref drawCount, depth + 1);
+        //    }
+        //}
 
-        private void DrawNode(Graphics g, NodeTypeLocation3D cnode, NodeTypeLocation3D parent, ref int drawCount)
-        {
-            g.FillEllipse(Brushes.Black, new Rectangle((int)cnode.Location.Item1, (int)cnode.Location.Item2, 10, 10));
-            g.DrawLine(Pens.Black, new Point((int)parent.Location.Item1, (int)parent.Location.Item2), new Point((int)cnode.Location.Item1, (int)cnode.Location.Item2));
-            drawCount++;
-        }
+        //private void DrawNode(Graphics g, NodeTypeLocation3D cnode, NodeTypeLocation3D parent, ref int drawCount)
+        //{
+        //    g.FillEllipse(Brushes.Black, new Rectangle((int)cnode.Location.Item1, (int)cnode.Location.Item2, 10, 10));
+        //    g.DrawLine(Pens.Black, new Point((int)parent.Location.Item1, (int)parent.Location.Item2), new Point((int)cnode.Location.Item1, (int)cnode.Location.Item2));
+        //    drawCount++;
+        //}
 
         public int Size()
         {
