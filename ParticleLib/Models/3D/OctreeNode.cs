@@ -51,24 +51,16 @@ namespace ParticleLib.Models._3D
         public OctreeNode? _000 { get; set; }
     }
 
-    public class NodeTypeLocation3D
+    public class NodeTypeLayer3D : AAABBB
     {
-        private bool islayer = false;
-        private bool isoverflow = false;
+        public NodeTypeLayer3D(Point3D from, Point3D to) : base(from, to)
+        { 
+            ChildLocationItems = new List<NodeTypeLocation3D>();
+        }
         private static int _maxSize = 10;
-        public (float, float, float) Location;
+        private bool isoverflow = false;
         public static NodeType Identity { get; set; } = NodeType.Location;
         public List<NodeTypeLocation3D> ChildLocationItems { get; set; }
-        public bool IsLayer => islayer;
-
-        public NodeTypeLocation3D(float x, float y, float z, bool isLayer)
-        {
-            islayer = isLayer;
-            Location = (x, y, z);
-            if (isLayer)
-            { ChildLocationItems = new List<NodeTypeLocation3D>(); }
-        }
-
         public void Add(NodeTypeLocation3D item)
         {
             ChildLocationItems.Add(item);
@@ -76,13 +68,22 @@ namespace ParticleLib.Models._3D
 
         public bool Full()
         {
-            return isoverflow || !this.islayer || ChildLocationItems.Count >= _maxSize;
+            return isoverflow || ChildLocationItems.Count >= _maxSize;
         }
 
         internal void ClearChildren()
         {
             ChildLocationItems = new List<NodeTypeLocation3D>();
             isoverflow = true;
+        }
+    }
+
+    public class NodeTypeLocation3D
+    {
+        public (float, float, float) Location;
+        public NodeTypeLocation3D(float x, float y, float z, bool isLayer)
+        {
+            Location = (x, y, z);
         }
     }
 
