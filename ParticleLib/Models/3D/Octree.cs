@@ -100,10 +100,59 @@ namespace ParticleLib.Models._3D
                 //    g.FillEllipse(Brushes.Black, new Rectangle((int)parentNode.Location.Item1, (int)parentNode.Location.Item2, 10, 10));
                 //else
                 //{
-                    //var layerSize = _to * ((float)(1 / Math.Pow(2, depth)));
-                    Pen pen = depth < 3 ? Pens.Black : depth < 10 ? Pens.DarkCyan : Pens.Red;
-                    g.DrawRectangle(pen, new Rectangle((int)parentNode._from.X, (int)parentNode._from.Y, (int)parentNode._to.X, (int)parentNode._to.Y));
-                //}
+                //var layerSize = _to * ((float)(1 / Math.Pow(2, depth)));
+                Pen pen = Pens.Black;
+                switch (depth)
+                {
+                    case 2:
+                        pen = Pens.DarkBlue;
+                        break;
+                    case 3:
+                        pen = Pens.DarkCyan;
+                        break;
+                    case 4:
+                        pen = Pens.DarkGreen;
+                        break;
+                    case 5:
+                        pen = Pens.Blue;
+                        break;
+                    case 6:
+                        pen = Pens.Cyan;
+                        break;
+                    case 7:
+                        pen = Pens.Green;
+                        break;
+                    case 8:
+                        pen = Pens.DarkOrange;
+                        break;
+                    case 9:
+                        pen = Pens.DarkSalmon;
+                        break;
+                    case 10:
+                        pen = Pens.DarkRed;
+                        break;
+                    case 11:
+                        pen = Pens.Yellow;
+                        break;
+                    case 12:
+                        pen = Pens.OrangeRed;
+                        break;
+                    case 13:
+                        pen = Pens.Red;
+                        break;
+                    case 14:
+                        pen = Pens.MediumPurple;
+                        break;
+                    case 15:
+                        pen = Pens.Violet;
+                        break;
+                    case 16:
+                        pen = Pens.Pink;
+                        break;
+                }
+                   
+                g.DrawRectangle(pen, new Rectangle((int)parentNode._from.X, (int)parentNode._from.Y, (int)parentNode._to.X, (int)parentNode._to.Y));
+          
 
                 foreach (var cnode in parentNode.ChildLocationItems)
                     DrawNode(g, cnode, parentNode, ref drawCount);
@@ -229,7 +278,7 @@ namespace ParticleLib.Models._3D
 
         unsafe private void Add(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
         {
-            if (depth == 32)
+            if (depth == 64)
                 return;
 
 

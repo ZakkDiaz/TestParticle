@@ -88,10 +88,10 @@ namespace Ocdisplay
                         Init();
                     }
 
-                    for (var i = 0; i < 100; i++)
+                    for (var i = 0; i < 10; i++)
                     {
-                        var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                        //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() *500), (float)(r.NextDouble() *100), (float)(r.NextDouble() * depth), false);
+                        //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
+                        var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() *100), (float)(r.NextDouble() *100), (float)(r.NextDouble() * 100), false);
 
                         //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
                         _octree.Add(locationToAdd);
