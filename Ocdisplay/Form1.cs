@@ -22,7 +22,7 @@ namespace Ocdisplay
         bool _init = false;
         Octree _octree;
         int depth = 1000;
-
+        bool _mouseDown = false;
         BackgroundWorker adder;
         public Form1()
         {
@@ -32,11 +32,39 @@ namespace Ocdisplay
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
             this.Paint += Form1_Paint;
+            this.MouseDown += Form1_MouseDown;
+            this.MouseUp += Form1_MouseUp;
 
             adder = new BackgroundWorker();
             adder.DoWork += Adder_DoWork;
             adder.RunWorkerAsync();
             Application.Idle += HandleApplicationIdle;
+        }
+
+        private void Form1_MouseUp(object sender, MouseEventArgs e)
+        {
+            _mouseDown = false;
+        }
+
+        private void Form1_MouseDown(object sender, MouseEventArgs e)
+        {
+            _mouseDown = true;
+        }
+
+        private void Form1_MouseClick(object sender, MouseEventArgs e)
+        {
+            var point = new Point3D(e.X, e.Y, 250);
+            _octree.AddAsync(point.X, point.Y, point.Z);
+            var otSize = _octree.Size();
+            var otDepth = _octree.Depth();
+
+            Bitmap bmp = new Bitmap(this.Width, this.Height);
+            using var g = Graphics.FromImage(bmp);
+            //_octree.Draw(g);
+            g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
+            _next = bmp;
+            _outdatedImage = true;
+            this.Invalidate();
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -71,16 +99,17 @@ namespace Ocdisplay
                     _outdatedImage = false;
                     _outdatedImagedReceived = true;
                 }
-
             }
         }
 
-        private int renderInterval = 10;
+        private int renderInterval = 5;
         private int renderCount = 0;
+        private int radius = 25;
         private unsafe void Adder_DoWork(object sender, DoWorkEventArgs e)
         {
             while(true)
             {
+                if(_mouseDown)
                 try
                 {
                     if (!_init)
@@ -89,25 +118,20 @@ namespace Ocdisplay
                     }
 
                     for (var i = 0; i < 10; i++)
-                    {
-                        //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                        var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() *100), (float)(r.NextDouble() *100), (float)(r.NextDouble() * 100), false);
+                        {
+                            var cX = Cursor.Position.X + (float)(r.NextDouble() * 2 * radius) - radius;
+                            var cY = Cursor.Position.Y + (float)(r.NextDouble() * 2 * radius) - radius;
+                            //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
+                            //var locationToAdd = new NodeTypeLocation3D(cX, cY, 500, false);
 
                         //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
-                        _octree.Add(locationToAdd);
+                        _octree.AddAsync(cX, cY, 500);
                     }
-
+                        System.Threading.Thread.Sleep(10);
                     if (renderCount == renderInterval)
                     {
-                        renderCount = 0;
-                        var otSize = _octree.Size();
-                        var otDepth = _octree.Depth();
-                        Bitmap bmp = new Bitmap(this.Width, this.Height);
-                        using var g = Graphics.FromImage(bmp);
-                        _octree.Draw(g);
-                        g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.LightBlue, new PointF(50, 50));
-                        _next = bmp;
-                        _outdatedImage = true;
+                            Draw();
+                            renderCount = 0;
                     }
 
                     renderCount++;
@@ -153,16 +177,32 @@ namespace Ocdisplay
             
             for (var i = 0; i < 1; i++)
             {
-                var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                _octree.Add(locationToAdd);
+                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
+                //_octree.Add(locationToAdd);
             }
+
+            Draw();
+
+          
+        }
+
+        private void Draw()
+        {
             var otSize = _octree.Size();
             var otDepth = _octree.Depth();
 
             Bitmap bmp = new Bitmap(this.Width, this.Height);
             using var g = Graphics.FromImage(bmp);
-            _octree.Draw(g);
+            //_octree.Draw(g);
             g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
+            foreach (var itm in _octree.GetPointCloud())
+            {
+                g.FillEllipse(Brushes.Black, new Rectangle((int)itm.X, (int)itm.Y, 10, 10));
+            }
+            foreach (var bound in _octree.GetBoxCloud())
+            {
+                g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
+            }
             _next = bmp;
             _outdatedImage = true;
             this.Invalidate();

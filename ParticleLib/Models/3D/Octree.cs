@@ -1,16 +1,43 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ParticleLib.Models._3D
 {
     public class Octree : AAABBB
     {
+        object taskLock = new object();
+        List<Task> taskQueue = new List<Task>();
+        Thread _taskThread;
         public OctreeNode OctreeNode { get; set; }
-        private Dictionary<ulong, NodeCollection> _octreeHeap = new Dictionary<ulong, NodeCollection>();
-        private Dictionary<IntPtr, NodeTypeLocation3D> _objRefs = new Dictionary<IntPtr, NodeTypeLocation3D>();
-        private Dictionary<IntPtr, NodeTypeLayer3D> _locationRefs = new Dictionary<IntPtr, NodeTypeLayer3D>();
+        private ConcurrentDictionary<ulong, NodeCollection> _octreeHeap = new ConcurrentDictionary<ulong, NodeCollection>();
+        private ConcurrentDictionary<IntPtr, NodeTypeLocation3D> _objRefs = new ConcurrentDictionary<IntPtr, NodeTypeLocation3D>();
+        private ConcurrentDictionary<IntPtr, NodeTypeLayer3D> _locationRefs = new ConcurrentDictionary<IntPtr, NodeTypeLayer3D>();
+
+        public void ProcessParticles(IParticleProcessor particleProcessor)
+        {
+            particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);
+        }
+
+        public Point3D[] GetPointCloud()
+        {
+            return _objRefs.Select(s => s.Value.Location).ToArray();
+        }
+
+        public bool AnyToAdd()
+        {
+            lock(taskLock)
+                return taskQueue.Any();
+        }
+
+        public AAABBB[] GetBoxCloud()
+        {
+            return _locationRefs.Select(s => s.Value).ToArray();
+        }
 
         //Font font = new Font("Arial", 20);
         //private ConcurrentBag<NodeTypeLocation3D> _locationObjects = new ConcurrentBag<NodeTypeLocation3D>();
@@ -82,165 +109,165 @@ namespace ParticleLib.Models._3D
             return depth + maxDepth;
         }
 
-        public void Draw(Graphics g)
-        {
-            var head = OctreeNode;
-            int _drawcount = 0;
-            Draw(g, head, ref _drawcount, 1);
-        }
+        //public void Draw(Graphics g)
+        //{
+        //    var head = OctreeNode;
+        //    int _drawcount = 0;
+        //    Draw(g, head, ref _drawcount, 1);
+        //}
 
-        private void Draw(Graphics g, OctreeNode node, ref int drawCount, int depth)
-        {
-            var center = (_to - _from) / 2;
-            var locCode = node.LocCode;
-            var parentNode = _locationRefs[node.ObjPtr];
-            //if (depth > 10)
-            {
-                //if (!parentNode.IsLayer)
-                //    g.FillEllipse(Brushes.Black, new Rectangle((int)parentNode.Location.Item1, (int)parentNode.Location.Item2, 10, 10));
-                //else
-                //{
-                //var layerSize = _to * ((float)(1 / Math.Pow(2, depth)));
-                Pen pen = Pens.Black;
-                switch (depth)
-                {
-                    case 2:
-                        pen = Pens.DarkBlue;
-                        break;
-                    case 3:
-                        pen = Pens.DarkCyan;
-                        break;
-                    case 4:
-                        pen = Pens.DarkGreen;
-                        break;
-                    case 5:
-                        pen = Pens.Blue;
-                        break;
-                    case 6:
-                        pen = Pens.Cyan;
-                        break;
-                    case 7:
-                        pen = Pens.Green;
-                        break;
-                    case 8:
-                        pen = Pens.DarkOrange;
-                        break;
-                    case 9:
-                        pen = Pens.DarkSalmon;
-                        break;
-                    case 10:
-                        pen = Pens.DarkRed;
-                        break;
-                    case 11:
-                        pen = Pens.Yellow;
-                        break;
-                    case 12:
-                        pen = Pens.OrangeRed;
-                        break;
-                    case 13:
-                        pen = Pens.Red;
-                        break;
-                    case 14:
-                        pen = Pens.MediumPurple;
-                        break;
-                    case 15:
-                        pen = Pens.Violet;
-                        break;
-                    case 16:
-                        pen = Pens.Pink;
-                        break;
-                }
+        //private void Draw(Graphics g, OctreeNode node, ref int drawCount, int depth)
+        //{
+        //    var center = (_to - _from) / 2;
+        //    var locCode = node.LocCode;
+        //    var parentNode = _locationRefs[node.ObjPtr];
+        //    //if (depth > 10)
+        //    {
+        //        //if (!parentNode.IsLayer)
+        //        //    g.FillEllipse(Brushes.Black, new Rectangle((int)parentNode.Location.Item1, (int)parentNode.Location.Item2, 10, 10));
+        //        //else
+        //        //{
+        //        //var layerSize = _to * ((float)(1 / Math.Pow(2, depth)));
+        //        Pen pen = Pens.Black;
+        //        switch (depth)
+        //        {
+        //            case 2:
+        //                pen = Pens.DarkBlue;
+        //                break;
+        //            case 3:
+        //                pen = Pens.DarkCyan;
+        //                break;
+        //            case 4:
+        //                pen = Pens.DarkGreen;
+        //                break;
+        //            case 5:
+        //                pen = Pens.Blue;
+        //                break;
+        //            case 6:
+        //                pen = Pens.Cyan;
+        //                break;
+        //            case 7:
+        //                pen = Pens.Green;
+        //                break;
+        //            case 8:
+        //                pen = Pens.DarkOrange;
+        //                break;
+        //            case 9:
+        //                pen = Pens.DarkSalmon;
+        //                break;
+        //            case 10:
+        //                pen = Pens.DarkRed;
+        //                break;
+        //            case 11:
+        //                pen = Pens.Yellow;
+        //                break;
+        //            case 12:
+        //                pen = Pens.OrangeRed;
+        //                break;
+        //            case 13:
+        //                pen = Pens.Red;
+        //                break;
+        //            case 14:
+        //                pen = Pens.MediumPurple;
+        //                break;
+        //            case 15:
+        //                pen = Pens.Violet;
+        //                break;
+        //            case 16:
+        //                pen = Pens.Pink;
+        //                break;
+        //        }
                    
-                g.DrawRectangle(pen, new Rectangle((int)parentNode._from.X, (int)parentNode._from.Y, (int)parentNode._to.X, (int)parentNode._to.Y));
+        //        g.DrawRectangle(pen, new Rectangle((int)parentNode._from.X, (int)parentNode._from.Y, (int)parentNode._to.X, (int)parentNode._to.Y));
           
 
-                foreach (var cnode in parentNode.ChildLocationItems)
-                    DrawNode(g, cnode, parentNode, ref drawCount);
-            }
-            var collectionItem = _octreeHeap[locCode];
-            if (collectionItem._000.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._000.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_000 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
+        //        foreach (var cnode in parentNode.ChildLocationItems)
+        //            DrawNode(g, cnode, parentNode, ref drawCount);
+        //    }
+        //    var collectionItem = _octreeHeap[locCode];
+        //    if (collectionItem._000.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._000.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_000 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
 
 
-                Draw(g, collectionItem._000.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._001.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._001.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_001 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._001.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._010.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._010.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_010 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._010.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._011.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._011.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_011 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._011.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._100.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._100.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_100 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._100.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._101.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._101.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_101 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._101.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._110.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._110.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_110 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._110.Value, ref drawCount, depth + 1);
-            }
-            if (collectionItem._111.HasValue)
-            {
-                //var _obj = _objRefs[collectionItem._111.Value.ObjPtr] as NodeTypeLocation3D;
-                //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
-                //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
-                //g.DrawString("_111 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
-                drawCount++;
-                Draw(g, collectionItem._111.Value, ref drawCount, depth + 1);
-            }
-        }
+        //        Draw(g, collectionItem._000.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._001.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._001.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_001 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._001.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._010.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._010.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_010 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._010.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._011.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._011.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_011 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._011.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._100.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._100.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_100 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._100.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._101.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._101.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_101 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._101.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._110.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._110.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_110 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._110.Value, ref drawCount, depth + 1);
+        //    }
+        //    if (collectionItem._111.HasValue)
+        //    {
+        //        //var _obj = _objRefs[collectionItem._111.Value.ObjPtr] as NodeTypeLocation3D;
+        //        //g.FillEllipse(Brushes.Black, new Rectangle((int)_obj.Location.Item1, (int)_obj.Location.Item2, 10, 10));
+        //        //g.DrawLine(Pens.Black, new Point((int)parentNode.Location.Item1, (int)parentNode.Location.Item2), new Point((int)_obj.Location.Item1, (int)_obj.Location.Item2));
+        //        //g.DrawString("_111 " + drawCount, font, Brushes.Black, new PointF(_obj.Location.Item1, _obj.Location.Item2));
+        //        drawCount++;
+        //        Draw(g, collectionItem._111.Value, ref drawCount, depth + 1);
+        //    }
+        //}
 
-        private void DrawNode(Graphics g, NodeTypeLocation3D cnode, NodeTypeLayer3D parent, ref int drawCount)
-        {
-            var center = (parent._to - parent._from) / 2;
-            g.FillEllipse(Brushes.Black, new Rectangle((int)cnode.Location.Item1, (int)cnode.Location.Item2, 10, 10));
-            g.DrawLine(Pens.Black, new Point((int)center.X, (int)center.Y), new Point((int)center.X, (int)center.Y));
-            drawCount++;
-        }
+        //private void DrawNode(Graphics g, NodeTypeLocation3D cnode, NodeTypeLayer3D parent, ref int drawCount)
+        //{
+        //    var center = (parent._to - parent._from) / 2;
+        //    g.FillEllipse(Brushes.Black, new Rectangle((int)cnode.Location.Item1, (int)cnode.Location.Item2, 10, 10));
+        //    g.DrawLine(Pens.Black, new Point((int)center.X, (int)center.Y), new Point((int)center.X, (int)center.Y));
+        //    drawCount++;
+        //}
 
         public int Size()
         {
@@ -250,52 +277,86 @@ namespace ParticleLib.Models._3D
         unsafe public Octree(Point3D from, Point3D to) : base(from, to)
         {
             var _locationNode = new NodeTypeLayer3D(from, to);
-            TypedReference tr = __makeref(_locationNode);
-            IntPtr ptr = **(IntPtr**)(&tr);
-            _locationRefs.Add(ptr, _locationNode);
+            var ptr = (IntPtr)GCHandle.Alloc(_locationNode);
+            _locationRefs.TryAdd(ptr, _locationNode);
 
             var defaultNodeCollection = new NodeCollection();
             var nodeCollectionPtr  =  &defaultNodeCollection;
             OctreeNode = new OctreeNode(nodeCollectionPtr, null, 0b1000, 0, NodeType.Location, ptr, 0);
-            _octreeHeap.Add(OctreeNode.LocCode, defaultNodeCollection);
+            _octreeHeap.TryAdd(OctreeNode.LocCode, defaultNodeCollection);
             //_octreeNodes.Add(OctreeNode);
+            _taskThread = new Thread(ProcessStack);
+            _taskThread.Start();
         }
 
-        unsafe public void Add(NodeTypeLocation3D pointLocation)
+        private void ProcessStack()
         {
-            TypedReference tr = __makeref(pointLocation);
-            IntPtr ptr = **(IntPtr**)(&tr);
-            while(_objRefs.ContainsKey(ptr))
+            while(true)
             {
-                pointLocation = new NodeTypeLocation3D(pointLocation.Location.Item1, pointLocation.Location.Item2, pointLocation.Location.Item3, false);
-                tr = __makeref(pointLocation);
-                ptr = **(IntPtr**)(&tr);
-            }
-            _objRefs.Add(ptr, pointLocation);
+                List<Task> toRun = new List<Task>();
+                lock (taskLock)
+                    if (taskQueue.Any())
+                    {
+                        toRun.AddRange(taskQueue.ToList());
+                        taskQueue = new List<Task>();
+                    }
+                toRun.ForEach(task => task.Start());
+                //Task.Factory.StartNew(() => );
 
-            Add(OctreeNode, pointLocation);
+                //var procThread = new Thread(() => {
+                //    var ts = DateTime.UtcNow.Ticks;
+                //    Parallel.ForEach(toRun, new ParallelOptions() { MaxDegreeOfParallelism = 10000 }, (task) => { task.Start(); });
+                //    var e_ts = DateTime.UtcNow.Ticks;
+                //    var diff = (e_ts - ts) / TimeSpan.TicksPerMillisecond;
+                //    Console.WriteLine($"O:{diff}:{toRun.Count}");
+                //});
+                //procThread.Start();
+                //foreach(var task in toRun)
+                //{
+                //    task.Start();
+                //}
+            }
+
+        }
+
+        public void AddAsync(float x, float y, float z)
+        {
+            lock (taskLock)
+                taskQueue.Add(new Task(() => { Add(x, y, z); }));
+        }
+        private void Add(float x, float y, float z)
+        {
+            var location = new NodeTypeLocation3D(x, y, z, false);
+            var ptr = (IntPtr)GCHandle.Alloc(location);
+
+            _objRefs.TryAdd(ptr, location);
+
+            Add(OctreeNode, location);
+        }
+
+        private void AddAsyncRec(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
+        {
+            lock (taskLock)
+                taskQueue.Add(new Task(() => { Add(parentNode, pointLocation, depth); }));
         }
 
         unsafe private void Add(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
         {
-            if (depth == 64)
+            if (pointLocation == null)
                 return;
-
-
             var _compareTo = _locationRefs[parentNode.ObjPtr];
-            if (!_compareTo.Full())
+            if (!_compareTo.Full() || depth == 64)
             {
                 _compareTo.Add(pointLocation);
                 return;
             }
 
-            if (depth >= 12)
-                ;
-            var half = ((_compareTo._to - _compareTo._from) / 2);
-            var center = _compareTo._from + half;
-            var x = pointLocation.Location.Item1 > Math.Abs(center.X);
-            var y = pointLocation.Location.Item2 > Math.Abs(center.Y);
-            var z = pointLocation.Location.Item3 > Math.Abs(center.Z);
+            //var scale = Math.Pow(2, depth / 4);
+            var half = (_compareTo.To - _compareTo.From)/2;
+            var center = _compareTo.From + half;
+            var x = pointLocation.Location.X > Math.Abs(center.X);
+            var y = pointLocation.Location.Y > Math.Abs(center.Y);
+            var z = pointLocation.Location.Z > Math.Abs(center.Z);
 
             ulong quad =
                 (ulong)(
@@ -327,13 +388,19 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(half.X, half.Y, half.Z);
-                        var _fr = _compareTo._from + fromOff;
-                        var _to = half + _fr;
+                        var _fr = _compareTo.From + fromOff;
+                        var _to = _fr + half;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
 
                         nodeCollection._111 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1110):
@@ -343,12 +410,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(0, half.Y, half.Z);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._110 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1101):
@@ -358,12 +431,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(half.X, 0, half.Z);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._101 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1100):
@@ -373,12 +452,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(0, 0, half.Z);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._100 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1011):
@@ -388,12 +473,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(half.X, half.Y, 0);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._011 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1010):
@@ -403,12 +494,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(0, half.Y, 0);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._010 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1001):
@@ -418,12 +515,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(half.X, 0, 0);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._001 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
                 case unchecked((byte)0b1000):
@@ -433,12 +536,18 @@ namespace ParticleLib.Models._3D
                     else
                     {
                         var fromOff = new Point3D(0, 0, 0);
-                        var _fr = _compareTo._from + fromOff;
+                        var _fr = _compareTo.From + fromOff;
                         var _to = half + _fr;
                         OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
                         nodeCollection._000 = layerONode;
-                        _octreeHeap.Add(layerONode.LocCode, defaultNodeCollection);
-                        Add(layerONode, pointLocation, depth + 4);
+                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
+                        {
+                            Add(layerONode, pointLocation, depth + 4);
+                        }
+                        else
+                        {
+                            AddAsyncRec(OctreeNode, pointLocation);
+                        }
                     }
                     break;
             }
@@ -448,7 +557,7 @@ namespace ParticleLib.Models._3D
             _compareTo.ClearChildren();
             foreach (var node in toReflow)
             {
-                Add(OctreeNode, node);
+                AddAsyncRec(OctreeNode, node);
             }
         }
 
@@ -484,21 +593,14 @@ namespace ParticleLib.Models._3D
             //var to = new Point3D(xMax, yMax, zMax);
             var layerNode = new NodeTypeLayer3D(quadFrom, quadTo);
 
-            TypedReference tr = __makeref(layerNode);
-            IntPtr layer_ptr = **(IntPtr**)(&tr);
-            while (_locationRefs.ContainsKey(layer_ptr))
-            {
-                layerNode = new NodeTypeLayer3D(quadFrom, quadTo);
-                tr = __makeref(layerNode);
-                layer_ptr = **(IntPtr**)(&tr);
-            }
+            var ptr = (IntPtr)GCHandle.Alloc(layerNode);
 
             //Remove this and add another ref to a point collection
             //Then from quad calculate the point location relative to the point referenced (head = center, 000 = center/2, 111 = center * 2)
 
 
-            _locationRefs.Add(layer_ptr, layerNode);
-            return layer_ptr;
+            _locationRefs.TryAdd(ptr, layerNode);
+            return ptr;
         }
     }
 }
