@@ -117,7 +117,7 @@ namespace Ocdisplay
                         Init();
                     }
 
-                    for (var i = 0; i < 10; i++)
+                    for (var i = 0; i < 1; i++)
                         {
                             var cX = Cursor.Position.X + (float)(r.NextDouble() * 2 * radius) - radius;
                             var cY = Cursor.Position.Y + (float)(r.NextDouble() * 2 * radius) - radius;
@@ -127,7 +127,7 @@ namespace Ocdisplay
                         //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
                         _octree.AddAsync(cX, cY, 500);
                     }
-                        System.Threading.Thread.Sleep(10);
+                        System.Threading.Thread.Sleep(100);
                     if (renderCount == renderInterval)
                     {
                             Draw();

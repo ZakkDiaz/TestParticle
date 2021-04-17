@@ -10,22 +10,26 @@ namespace ParticleLib.Models._3D
 {
     public class Octree : AAABBB
     {
+        public static ConcurrentDictionary<IntPtr, ConcurrentDictionary<ulong, NodeCollection>> OctreeHeaps = new ConcurrentDictionary<IntPtr, ConcurrentDictionary<ulong, NodeCollection>>();
+
         object taskLock = new object();
         List<Task> taskQueue = new List<Task>();
         Thread _taskThread;
         public OctreeNode OctreeNode { get; set; }
         private ConcurrentDictionary<ulong, NodeCollection> _octreeHeap = new ConcurrentDictionary<ulong, NodeCollection>();
-        private ConcurrentDictionary<IntPtr, NodeTypeLocation3D> _objRefs = new ConcurrentDictionary<IntPtr, NodeTypeLocation3D>();
+
+        //private object _objRefsLock = new object();
+        //private List<NodeTypeLocation3D> _objRefs = new List<NodeTypeLocation3D>();
         private ConcurrentDictionary<IntPtr, NodeTypeLayer3D> _locationRefs = new ConcurrentDictionary<IntPtr, NodeTypeLayer3D>();
 
-        public void ProcessParticles(IParticleProcessor particleProcessor)
-        {
-            particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);
-        }
+        //public void ProcessParticles(IParticleProcessor particleProcessor)
+        //{
+        //    particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);
+        //}
 
         public Point3D[] GetPointCloud()
-        {
-            return _objRefs.Select(s => s.Value.Location).ToArray();
+        {            
+            return _locationRefs.SelectMany(s => s.Value.ChildLocationItems.Select(s => s.Location)).ToArray();
         }
 
         public bool AnyToAdd()
@@ -271,19 +275,23 @@ namespace ParticleLib.Models._3D
 
         public int Size()
         {
-            return _objRefs.Count;
+            return _locationRefs.SelectMany(s => s.Value.ChildLocationItems).Count();
         }
 
         unsafe public Octree(Point3D from, Point3D to) : base(from, to)
         {
-            var _locationNode = new NodeTypeLayer3D(from, to);
+            var octPtr = (IntPtr)GCHandle.Alloc(this);
+
+            var _locationNode = new NodeTypeLayer3D(from, to, octPtr);
             var ptr = (IntPtr)GCHandle.Alloc(_locationNode);
             _locationRefs.TryAdd(ptr, _locationNode);
+
 
             var defaultNodeCollection = new NodeCollection();
             var nodeCollectionPtr  =  &defaultNodeCollection;
             OctreeNode = new OctreeNode(nodeCollectionPtr, null, 0b1000, 0, NodeType.Location, ptr, 0);
             _octreeHeap.TryAdd(OctreeNode.LocCode, defaultNodeCollection);
+            OctreeHeaps.TryAdd(octPtr, _octreeHeap);
             //_octreeNodes.Add(OctreeNode);
             _taskThread = new Thread(ProcessStack);
             _taskThread.Start();
@@ -327,17 +335,18 @@ namespace ParticleLib.Models._3D
         private void Add(float x, float y, float z)
         {
             var location = new NodeTypeLocation3D(x, y, z, false);
-            var ptr = (IntPtr)GCHandle.Alloc(location);
-
-            _objRefs.TryAdd(ptr, location);
-
             Add(OctreeNode, location);
         }
 
         private void AddAsyncRec(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
         {
             lock (taskLock)
-                taskQueue.Add(new Task(() => { Add(parentNode, pointLocation, depth); }));
+                taskQueue.Add(new Task(() => { 
+                    Add(parentNode, pointLocation, depth);
+                    //var ptr = (IntPtr)GCHandle.Alloc(pointLocation);
+                    //lock (_objRefsLock)
+                    //    _objRefs.Add(pointLocation);
+                }));
         }
 
         unsafe private void Add(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
@@ -345,262 +354,12 @@ namespace ParticleLib.Models._3D
             if (pointLocation == null)
                 return;
             var _compareTo = _locationRefs[parentNode.ObjPtr];
-            if (!_compareTo.Full() || depth == 64)
-            {
-                _compareTo.Add(pointLocation);
-                return;
-            }
 
-            //var scale = Math.Pow(2, depth / 4);
-            var half = (_compareTo.To - _compareTo.From)/2;
-            var center = _compareTo.From + half;
-            var x = pointLocation.Location.X > Math.Abs(center.X);
-            var y = pointLocation.Location.Y > Math.Abs(center.Y);
-            var z = pointLocation.Location.Z > Math.Abs(center.Z);
+            _compareTo.LoadTask(_compareTo.AddAsyncTask(parentNode, pointLocation, depth));
+            //_compareTo.Add(parentNode, pointLocation, depth)
 
-            ulong quad =
-                (ulong)(
-                    (x ? 0b1001 : 0b1000)
-                    |
-                    (y ? 0b1010 : 0b1000)
-                    |
-                    (z ? 0b1100 : 0b1000)
-                );
-
-
-            var nodeCollection = _octreeHeap[parentNode.LocCode];
-            var defaultNodeCollection = new NodeCollection();
-            var nodeCollectionPtr = &defaultNodeCollection;
-
-            //var layerSize = _to * ((float)(1 / Math.Pow(2, depth/4)));
-            //g.DrawRectangle(Pens.Black, new Rectangle((int)parentNode.Location.Item1 - (int)layerSize.X, (int)parentNode.Location.Item2 - (int)layerSize.Y, 2 * (int)layerSize.X, 2 * (int)layerSize.Y));
-
-            //if (x && (pointLocation.Location.Item1 - layerSize.X) > _compareTo.Location.Item1)
-            //    ;
-
-            switch (quad)
-            {
-                case unchecked((byte)0b1111):
-                    if (nodeCollection._111.HasValue)
-                    {
-                        Add(nodeCollection._111.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(half.X, half.Y, half.Z);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = _fr + half;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-
-                        nodeCollection._111 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1110):
-                    if (nodeCollection._110.HasValue) { 
-                        Add(nodeCollection._110.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(0, half.Y, half.Z);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._110 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1101):
-                    if (nodeCollection._101.HasValue) { 
-                        Add(nodeCollection._101.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(half.X, 0, half.Z);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._101 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1100):
-                    if (nodeCollection._100.HasValue) { 
-                        Add(nodeCollection._100.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(0, 0, half.Z);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._100 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1011):
-                    if (nodeCollection._011.HasValue) { 
-                        Add(nodeCollection._011.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(half.X, half.Y, 0);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._011 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1010):
-                    if (nodeCollection._010.HasValue) { 
-                        Add(nodeCollection._010.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(0, half.Y, 0);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._010 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1001):
-                    if (nodeCollection._001.HasValue) { 
-                        Add(nodeCollection._001.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(half.X, 0, 0);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._001 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-                case unchecked((byte)0b1000):
-                    if (nodeCollection._000.HasValue) { 
-                        Add(nodeCollection._000.Value, pointLocation, depth + 4);
-                    }
-                    else
-                    {
-                        var fromOff = new Point3D(0, 0, 0);
-                        var _fr = _compareTo.From + fromOff;
-                        var _to = half + _fr;
-                        OctreeNode layerONode = GenerateLayerOctreeNode(parentNode, depth, _compareTo, quad, nodeCollectionPtr, _fr, _to);
-                        nodeCollection._000 = layerONode;
-                        if (_octreeHeap.TryAdd(layerONode.LocCode, defaultNodeCollection))
-                        {
-                            Add(layerONode, pointLocation, depth + 4);
-                        }
-                        else
-                        {
-                            AddAsyncRec(OctreeNode, pointLocation);
-                        }
-                    }
-                    break;
-            }
-            _octreeHeap[parentNode.LocCode] = nodeCollection;
-
-            var toReflow = _compareTo.ChildLocationItems.ToList();
-            _compareTo.ClearChildren();
-            foreach (var node in toReflow)
-            {
-                AddAsyncRec(OctreeNode, node);
-            }
+        
         }
 
-        private unsafe OctreeNode GenerateLayerOctreeNode(OctreeNode parentNode, int depth, NodeTypeLayer3D _compareTo, ulong quad, NodeCollection* nodeCollectionPtr, Point3D quadFrom, Point3D quadTo)
-        {
-            var layerPtr = CreateLayerLocation(_compareTo, quadFrom, quadTo);
-            var layerONode = new OctreeNode()
-            {
-                NodeType = NodeType.Layer,
-                ObjPtr = layerPtr,
-                ChildExists = 0
-            };
-            layerONode.Children = nodeCollectionPtr;
-            layerONode.LocCode = (parentNode.LocCode | (quad << depth));
-            return layerONode;
-        }
-
-        private unsafe IntPtr CreateLayerLocation(NodeTypeLayer3D parentLayer, Point3D quadFrom, Point3D quadTo)
-        {
-            //var center = (parentLayer._to - parentLayer._from) / 2;
-            //var from = center + quadOff;
-            //var to = from + center;
-            //var absOff = new Point3D(Math.Abs(centerOff.X), Math.Abs(centerOff.Y), Math.Abs(centerOff.Z));
-            //var to = absOff + quadOff;
-            //var xMin = Math.Min(center.X, quadOff.X);
-            //var yMin = Math.Min(center.Y, quadOff.Y);
-            //var zMin = Math.Min(center.Z, quadOff.Z);
-            //var xMax = Math.Max(center.X, quadOff.X);
-            //var yMax = Math.Max(center.Y, quadOff.Y);
-            //var zMax = Math.Max(center.Z, quadOff.Z);
-
-            //var from = new Point3D(xMin, yMin, zMin);
-            //var to = new Point3D(xMax, yMax, zMax);
-            var layerNode = new NodeTypeLayer3D(quadFrom, quadTo);
-
-            var ptr = (IntPtr)GCHandle.Alloc(layerNode);
-
-            //Remove this and add another ref to a point collection
-            //Then from quad calculate the point location relative to the point referenced (head = center, 000 = center/2, 111 = center * 2)
-
-
-            _locationRefs.TryAdd(ptr, layerNode);
-            return ptr;
-        }
     }
 }

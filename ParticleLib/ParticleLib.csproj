@@ -14,4 +14,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>8.0</LangVersion>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net471|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	  <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
 </Project>
