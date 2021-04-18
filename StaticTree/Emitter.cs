@@ -25,7 +25,7 @@ namespace StaticTree
             id++;
             ///while (true) 
             {  
-                for (var i = 0; i < 100000; i++)
+                for (var i = 0; i < 1000000; i++)
                 {
                     count++;
                     Program.octree.AddAsync(center.X * ParticleLib.Models.ThreadSafeRandom.Next_s() + Program.octree.From.X, center.Y * ParticleLib.Models.ThreadSafeRandom.Next_s() + Program.octree.From.Y, center.Z * ParticleLib.Models.ThreadSafeRandom.Next_s() + Program.octree.From.Z);

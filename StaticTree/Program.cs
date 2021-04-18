@@ -31,6 +31,7 @@ namespace StaticTree
             Emitter.AddEmitter();
             Emitter.AddEmitter();
             Emitter.AddEmitter();
+            Emitter.AddEmitter();
             System.Threading.Thread.Sleep(1000);
             //Parallel.For(0, width, (x) =>
             //{

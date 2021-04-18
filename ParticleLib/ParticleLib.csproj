@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFrameworks>net471</TargetFrameworks>
     <Platforms>AnyCPU;x64</Platforms>
+	  <LangVersion>8.0</LangVersion>
+	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

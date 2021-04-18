@@ -24,6 +24,7 @@ namespace Ocdisplay
         int depth = 1000;
         bool _mouseDown = false;
         BackgroundWorker adder;
+        BackgroundWorker drawer;
         public Form1()
         {
             InitializeComponent();
@@ -38,7 +39,24 @@ namespace Ocdisplay
             adder = new BackgroundWorker();
             adder.DoWork += Adder_DoWork;
             adder.RunWorkerAsync();
-            Application.Idle += HandleApplicationIdle;
+            drawer = new BackgroundWorker();
+            drawer.DoWork += Drawer_DoWork;
+            drawer.RunWorkerAsync();
+            //Application.Idle += HandleApplicationIdle;
+        }
+
+        bool doDraw = false;
+        private void Drawer_DoWork(object sender, DoWorkEventArgs e)
+        {
+            while (true)
+            {
+                if (doDraw)
+                {
+                    Draw();
+                    System.Threading.Thread.Sleep(10);
+                    doDraw = false;
+                }
+            }
         }
 
         private void Form1_MouseUp(object sender, MouseEventArgs e)
@@ -88,56 +106,61 @@ namespace Ocdisplay
         }
 
         bool _outdatedImagedReceived = false;
-        void HandleApplicationIdle(object sender, EventArgs e)
-        {
-            while (IsApplicationIdle())
-            {
-                Update();
-                if (_outdatedImage)
-                {
-                    this.Invalidate();
-                    _outdatedImage = false;
-                    _outdatedImagedReceived = true;
-                }
-            }
-        }
+        //void HandleApplicationIdle(object sender, EventArgs e)
+        //{
+        //    while (IsApplicationIdle())
+        //    {
+        //        Update();
+        //        if (_outdatedImage)
+        //        {
+        //            this.Invalidate();
+        //            _outdatedImage = false;
+        //            _outdatedImagedReceived = true;
+        //        }
+        //    }
+        //}
 
-        private int renderInterval = 5;
+        private int renderInterval = 10000;
         private int renderCount = 0;
         private int radius = 25;
         private unsafe void Adder_DoWork(object sender, DoWorkEventArgs e)
         {
             while(true)
             {
-                if(_mouseDown)
-                try
+                renderCount++;
+                if (renderCount == renderInterval)
                 {
-                    if (!_init)
-                    {
-                        Init();
-                    }
-
-                    for (var i = 0; i < 10; i++)
+                    if (_mouseDown)
+                        try
                         {
-                            var cX = Cursor.Position.X + (float)(r.NextDouble() * 2 * radius) - radius;
-                            var cY = Cursor.Position.Y + (float)(r.NextDouble() * 2 * radius) - radius;
-                            //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                            //var locationToAdd = new NodeTypeLocation3D(cX, cY, 500, false);
+                            if (!_init)
+                            {
+                                Init();
+                            }
 
-                        //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
-                        _octree.AddAsync(cX, cY, 500);
-                    }
-                        System.Threading.Thread.Sleep(10);
-                    if (renderCount == renderInterval)
-                    {
-                            Draw();
-                            renderCount = 0;
-                    }
 
-                    renderCount++;
-                } catch(Exception ex)
-                {
+                            //System.Threading.Thread.Sleep(1);
+                            //System.Threading.Thread.Sleep(10);
+                            for (var i = 0; i < 1; i++)
+                            {
+                                var cX = Cursor.Position.X + (float)(r.NextDouble() * 2 * radius) - radius;
+                                var cY = Cursor.Position.Y + (float)(r.NextDouble() * 2 * radius) - radius;
+                                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
+                                //var locationToAdd = new NodeTypeLocation3D(cX, cY, 500, false);
 
+                                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
+                                _octree.AddAsync(cX, cY, 500);
+                            }
+                            //Draw();
+                            doDraw = true;
+
+
+                        }
+                        catch (Exception ex)
+                        {
+
+                        }
+                    renderCount = 0;
                 }
             }
         }
@@ -151,7 +174,8 @@ namespace Ocdisplay
             else if (_outdatedImagedReceived)
             {
                 _background = new Bitmap(_next);
-                e.Graphics.DrawImage(_background, Point.Empty);
+                this.BackgroundImage = _background;
+                //e.Graphics.DrawImage(_background, Point.Empty);
                 _outdatedImagedReceived = false;
             }
         }
@@ -181,7 +205,7 @@ namespace Ocdisplay
                 //_octree.Add(locationToAdd);
             }
 
-            Draw();
+            //Draw();
 
           
         }
@@ -198,13 +222,15 @@ namespace Ocdisplay
             foreach (var itm in _octree.GetPointCloud())
             {
                 g.FillEllipse(Brushes.Black, new Rectangle((int)itm.X, (int)itm.Y, 10, 10));
+                Application.DoEvents();
             }
             foreach (var bound in _octree.GetBoxCloud())
             {
                 g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
+                Application.DoEvents();
             }
             _next = bmp;
-            _outdatedImage = true;
+            _outdatedImagedReceived = true;
             this.Invalidate();
         }
     }
