@@ -56,12 +56,12 @@ namespace Ocdisplay
             var point = new Point3D(e.X, e.Y, 250);
             _octree.AddAsync(point.X, point.Y, point.Z);
             var otSize = _octree.Size();
-            var otDepth = _octree.Depth();
+            //var otDepth = _octree.Depth();
 
             Bitmap bmp = new Bitmap(this.Width, this.Height);
             using var g = Graphics.FromImage(bmp);
             //_octree.Draw(g);
-            g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
+            g.DrawString($"Size: {otSize}", font, Brushes.Black, new PointF(50, 50));
             _next = bmp;
             _outdatedImage = true;
             this.Invalidate();
@@ -177,8 +177,7 @@ namespace Ocdisplay
             
             for (var i = 0; i < 1; i++)
             {
-                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                //_octree.Add(locationToAdd);
+                _octree.AddAsync((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth));
             }
 
             Draw();
@@ -189,20 +188,20 @@ namespace Ocdisplay
         private void Draw()
         {
             var otSize = _octree.Size();
-            var otDepth = _octree.Depth();
+            //var otDepth = _octree.Depth();
 
             Bitmap bmp = new Bitmap(this.Width, this.Height);
             using var g = Graphics.FromImage(bmp);
             //_octree.Draw(g);
-            g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
+            g.DrawString($"Size: {otSize}", font, Brushes.Black, new PointF(50, 50));
             foreach (var itm in _octree.GetPointCloud())
             {
                 g.FillEllipse(Brushes.Black, new Rectangle((int)itm.X, (int)itm.Y, 10, 10));
             }
-            foreach (var bound in _octree.GetBoxCloud())
-            {
-                g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
-            }
+            //foreach (var bound in _octree.GetBoxCloud())
+            //{
+            //    g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
+            //}
             _next = bmp;
             _outdatedImage = true;
             this.Invalidate();

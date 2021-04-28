@@ -66,7 +66,7 @@ namespace ParticleLib.Models._3D
         public NodeTypeLayer3D(Point3D from, Point3D to, IntPtr octPtr) : base(from, to)
         {
             _octPtr = octPtr;
-            childLocationItems = new List<NodeTypeLocation3D>();
+            childLocationItems = new ConcurrentBag<NodeTypeLocation3D>();
             ForceContainer = new ForceContainer();
             layerThread = new Thread(ProcessItems);
         }
@@ -98,12 +98,11 @@ namespace ParticleLib.Models._3D
         private bool isoverflow = false;
         public static NodeType Identity { get; set; } = NodeType.Location;
         private object itemListLock { get; set; } = new object();
-        private List<NodeTypeLocation3D> childLocationItems { get; set; }
+        private ConcurrentBag<NodeTypeLocation3D> childLocationItems { get; set; }
         public Thread layerThread;
         public void Add(NodeTypeLocation3D item)
         {
-            lock(itemListLock)
-                childLocationItems.Add(item);
+            childLocationItems.Add(item);
         }
 
         public bool Full()
@@ -112,11 +111,13 @@ namespace ParticleLib.Models._3D
                 return isoverflow || childLocationItems.Count >= _maxSize;
         }
 
-        internal void ClearChildren()
+        internal List<NodeTypeLocation3D> ClearChildren()
         {
-            lock (itemListLock)
-                childLocationItems = new List<NodeTypeLocation3D>();
             isoverflow = true;
+            var toRet = childLocationItems.ToList();
+            childLocationItems = new ConcurrentBag<NodeTypeLocation3D>();
+            return toRet;
+            
         }
 
         public void LoadTask(Task task)
@@ -154,9 +155,23 @@ namespace ParticleLib.Models._3D
                     (z ? 0b1100 : 0b1000)
                 );
 
+            strt:
+            //if(!Octree.OctreeHeaps.ContainsKey(_octPtr))
+            //{
+            //    System.Threading.Thread.Sleep(1000);
+            //}
+            //var _octreeHeap = Octree.OctreeHeaps[_octPtr];
+            //if(!_octreeHeap.ContainsKey(parentNode.LocCode))
+            //{
+            //    System.Threading.Thread.Sleep(1000);
+            //    goto strt;
+            //}
 
-            var _octreeHeap = Octree.OctreeHeaps[_octPtr];
-            var nodeCollection = _octreeHeap[parentNode.LocCode];
+            var parentHandle = GCHandle.FromIntPtr(parentNode.ObjPtr);
+            var parentLayer = (NodeTypeLayer3D)parentHandle.Target;
+            var parentCollection = *parentNode.Children;
+            //var parentCollection = _octreeHeap[parentNode.LocCode];
+            var mergeCollection = new NodeCollection();
             var defaultNodeCollection = new NodeCollection();
             var nodeCollectionPtr = &defaultNodeCollection;
 
@@ -170,164 +185,191 @@ namespace ParticleLib.Models._3D
             switch (quad)
             {
                 case unchecked((byte)0b1111):
-                    if (nodeCollection._111.HasValue)
-                    {
-                        addTo = nodeCollection._111.Value;
-                    }
-                    else
+                    //if (parentCollection._111.HasValue)
+                    //{
+                    //    addTo = parentCollection._111.Value;
+                    //    mergeCollection._111 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(half.X, half.Y, half.Z);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._111 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._111 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1110):
-                    if (nodeCollection._110.HasValue)
-                    {
-                        addTo = nodeCollection._110.Value;
-                    }
-                    else
+                    //if (parentCollection._110.HasValue)
+                    //{
+                    //    addTo = parentCollection._110.Value;
+                    //    mergeCollection._110 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(0, half.Y, half.Z);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._110 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._110 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1101):
-                    if (nodeCollection._101.HasValue)
-                    {
-                        addTo = nodeCollection._101.Value;
-                    }
-                    else
+                    //if (parentCollection._101.HasValue)
+                    //{
+                    //    addTo = parentCollection._101.Value;
+                    //    mergeCollection._101 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(half.X, 0, half.Z);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._101 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._101 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1100):
-                    if (nodeCollection._100.HasValue)
-                    {
-                        addTo = nodeCollection._100.Value;
-                    }
-                    else
+                    //if (parentCollection._100.HasValue)
+                    //{
+                    //    addTo = parentCollection._100.Value;
+                    //    mergeCollection._100 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(0, 0, half.Z);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._100 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._100 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1011):
-                    if (nodeCollection._011.HasValue)
-                    {
-                        addTo = nodeCollection._011.Value;
-                    }
-                    else
+                    //if (parentCollection._011.HasValue)
+                    //{
+                    //    addTo = parentCollection._011.Value;
+                    //    mergeCollection._011 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(half.X, half.Y, 0);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._011 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._011 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1010):
-                    if (nodeCollection._010.HasValue)
-                    {
-                        addTo = nodeCollection._010.Value;
-                    }
-                    else
+                    //if (parentCollection._010.HasValue)
+                    //{
+                    //    addTo = parentCollection._010.Value;
+                    //    mergeCollection._010 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(0, half.Y, 0);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._010 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._010 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1001):
-                    if (nodeCollection._001.HasValue)
-                    {
-                        addTo = nodeCollection._001.Value;
-                    }
-                    else
+                    //if (parentCollection._001.HasValue)
+                    //{
+                    //    addTo = parentCollection._001.Value;
+                    //    mergeCollection._001 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(half.X, 0, 0);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._001 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._001 = addTo;
                     }
                     break;
                 case unchecked((byte)0b1000):
-                    if (nodeCollection._000.HasValue)
-                    {
-                        addTo = nodeCollection._000.Value;
-                    }
-                    else
+                    //if (parentCollection._000.HasValue)
+                    //{
+                    //    addTo = parentCollection._000.Value;
+                    //    mergeCollection._000 = addTo;
+                    //}
+                    //else
                     {
                         var fromOff = new Point3D(0, 0, 0);
 
                         addTo = GenerateLayerNode(parentNode, depth, half, quad, nodeCollectionPtr, fromOff);
 
-                        nodeCollection._000 = addTo;
+                        //if (_octreeHeap.ContainsKey(addTo.Value.LocCode))
+                        //{
+                        //    LoadTask(AddAsyncTask(parentNode, pointLocation, depth));
+                        //    return;
+                        //}
+
+                        mergeCollection._000 = addTo;
                     }
                     break;
             }
 
             var handle = GCHandle.FromIntPtr(addTo.Value.ObjPtr);
+            
+            while (!handle.IsAllocated)
+            {
+                System.Threading.Thread.Sleep(10);
+            }
             var layer = (NodeTypeLayer3D)handle.Target;
-            var parentPtr = parentNode.Parent;
+            layer.Add(pointLocation);
+            Octree.MergeHeap(new KeyValuePair<IntPtr, KeyValuePair<OctreeNode, NodeCollection>>(_octPtr, new KeyValuePair<OctreeNode, NodeCollection>(parentNode, mergeCollection)));
 
-
-            if (_octreeHeap.TryAdd(addTo.Value.LocCode, defaultNodeCollection))
-            {
-                    LoadTask(AddAsyncTask(addTo.Value, pointLocation, depth += 4));
-            }
-            else
-            {
-
-                if (parentPtr != null)
-                {
-                    LoadTask(AddAsyncTask(parentPtr->Value, pointLocation, depth -= 4));
-                } else
-                {
-                    if(addTo.Value.Parent != null)
-                    {
-                        var prent = (addTo.Value.Parent)->Value;
-                        LoadTask(AddAsyncTask(prent, pointLocation, depth));
-                    }
-                    //else
-                    //{
-                    //    LoadTask(AddAsyncTask(addTo.Value, pointLocation, depth += 4));
-                    //}
-                }
-            }
-
-            _octreeHeap[parentNode.LocCode] = nodeCollection;
-            Octree.OctreeHeaps[_octPtr] = _octreeHeap;
-
-            var toReflow = this.childLocationItems.ToList();
-            this.ClearChildren();
+            var toReflow = this.ClearChildren();
             foreach (var node in toReflow)
             {
-                if (parentPtr != null)
-                {
-                    LoadTask(AddAsyncTask(parentPtr->Value, node, depth -= 4));
-                }
-                else
-                {
-                    LoadTask(AddAsyncTask(addTo.Value, node, depth += 4));
-                }
+                LoadTask(AddAsyncTask(parentNode, node, depth));
             }
+ 
         }
 
         private unsafe OctreeNode GenerateLayerNode(OctreeNode parentNode, int depth, Point3D half, ulong quad, NodeCollection* nodeCollectionPtr, Point3D fromOff)
