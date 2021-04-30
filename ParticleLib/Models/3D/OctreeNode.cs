@@ -17,24 +17,24 @@ namespace ParticleLib.Models._3D
         public ulong LocCode;
         public Byte ChildExists;
         public NodeType NodeType { get; set; }
-        public IntPtr ObjPtr { get; set; }
         public Byte Quadrant { get; set; }
         public DimensionProperty ForceX { get; set; }
         public DimensionProperty ForceY { get; set; }
         public DimensionProperty ForceZ { get; set; }
+        public IntPtr Octree { get; set; }
 
-        unsafe public OctreeNode(NodeCollection* children, OctreeNode?* parent, UInt32 locCode, Byte childExists, NodeType nodeType, IntPtr objPtr, Byte quadrant)
+        unsafe public OctreeNode(NodeCollection* children, OctreeNode?* parent, ulong locCode, Byte childExists, NodeType nodeType, Byte quadrant, IntPtr octreePtr)
         {
             Children = children;
             Parent = parent;
             LocCode = locCode;
             ChildExists = childExists;
             NodeType = nodeType;
-            ObjPtr = objPtr;
             Quadrant = quadrant;
             ForceX = new DimensionProperty(0);
             ForceY = new DimensionProperty(1);
             ForceZ = new DimensionProperty(2);
+            Octree = octreePtr;
         }
     };
 
@@ -60,15 +60,17 @@ namespace ParticleLib.Models._3D
 
     public class NodeTypeLayer3D : AAABBB
     {
+        public NodeTypeLayer3D ParentLayer;
         public ForceContainer ForceContainer;
         public List<NodeTypeLocation3D> ChildLocationItems => childLocationItems.ToList();
-        private IntPtr _octPtr;
-        public NodeTypeLayer3D(Point3D from, Point3D to, IntPtr octPtr) : base(from, to)
+        private ulong _location;
+        public NodeTypeLayer3D(Point3D from, Point3D to, ulong location) : base(from, to)
         {
-            _octPtr = octPtr;
+            _location = location;
             childLocationItems = new ConcurrentBag<NodeTypeLocation3D>();
             ForceContainer = new ForceContainer();
-            layerThread = new Thread(ProcessItems);
+            layerTask = new Task(() => ProcessItems());
+            layerTask.Start();
         }
 
         private List<Task> _toRun { get; set; } = new List<Task>(); 
@@ -78,6 +80,7 @@ namespace ParticleLib.Models._3D
             {
                 try
                 {
+                    System.Threading.Thread.Sleep(100);
                     List<Task> toRun = new List<Task>();
                     lock (_toRun)
                     {
@@ -85,7 +88,10 @@ namespace ParticleLib.Models._3D
                         _toRun = new List<Task>();
                     }
                     foreach (var t in toRun)
-                        t.Start();
+                    {
+                        if(t.Status == TaskStatus.Created || t.Status == TaskStatus.WaitingForActivation)
+                            t.Start();
+                    }
                 }
                 catch(Exception ex )
                 {
@@ -99,7 +105,7 @@ namespace ParticleLib.Models._3D
         public static NodeType Identity { get; set; } = NodeType.Location;
         private object itemListLock { get; set; } = new object();
         private ConcurrentBag<NodeTypeLocation3D> childLocationItems { get; set; }
-        public Thread layerThread;
+        public Task layerTask;
         public void Add(NodeTypeLocation3D item)
         {
             childLocationItems.Add(item);
@@ -155,7 +161,7 @@ namespace ParticleLib.Models._3D
                     (z ? 0b1100 : 0b1000)
                 );
 
-            strt:
+        strt:
             //if(!Octree.OctreeHeaps.ContainsKey(_octPtr))
             //{
             //    System.Threading.Thread.Sleep(1000);
@@ -167,13 +173,29 @@ namespace ParticleLib.Models._3D
             //    goto strt;
             //}
 
-            var parentHandle = GCHandle.FromIntPtr(parentNode.ObjPtr);
-            var parentLayer = (NodeTypeLayer3D)parentHandle.Target;
-            var parentCollection = *parentNode.Children;
+            //while(!Octree._layers.ContainsKey(parentNode.LocCode))
+            //{
+            //    System.Threading.Thread.Sleep(100);
+            //    var parentLayer = Octree._layers[parentNode.LocCode];
+            //}
+
+            //var parentHandle = GCHandle.FromIntPtr(parentNode.ObjPtr);
+            //var parentLayer = (NodeTypeLayer3D)parentHandle.Target;
+            //var parentCollection = *parentNode.Children;
             //var parentCollection = _octreeHeap[parentNode.LocCode];
-            var mergeCollection = new NodeCollection();
-            var defaultNodeCollection = new NodeCollection();
-            var nodeCollectionPtr = &defaultNodeCollection;
+
+            NodeCollection mergeCollection;
+            var location = parentNode.LocCode | (quad << depth);
+            if (Octree._nodes.ContainsKey(location))
+            {
+                var chldPtr = Octree._nodes[location].Children;
+                mergeCollection = *(chldPtr);
+            }
+                
+            else
+                mergeCollection = new NodeCollection();
+            //var defaultNodeCollection = new NodeCollection();
+            var nodeCollectionPtr = &mergeCollection;
 
             //var layerSize = _to * ((float)(1 / Math.Pow(2, depth/4)));
             //g.DrawRectangle(Pens.Black, new Rectangle((int)parentNode.Location.Item1 - (int)layerSize.X, (int)parentNode.Location.Item2 - (int)layerSize.Y, 2 * (int)layerSize.X, 2 * (int)layerSize.Y));
@@ -354,15 +376,15 @@ namespace ParticleLib.Models._3D
                     break;
             }
 
-            var handle = GCHandle.FromIntPtr(addTo.Value.ObjPtr);
+            //var handle = GCHandle.FromIntPtr(addTo.Value.ObjPtr);
             
-            while (!handle.IsAllocated)
-            {
-                System.Threading.Thread.Sleep(10);
-            }
-            var layer = (NodeTypeLayer3D)handle.Target;
-            layer.Add(pointLocation);
-            Octree.MergeHeap(new KeyValuePair<IntPtr, KeyValuePair<OctreeNode, NodeCollection>>(_octPtr, new KeyValuePair<OctreeNode, NodeCollection>(parentNode, mergeCollection)));
+            //while (!handle.IsAllocated)
+            //{
+            //    System.Threading.Thread.Sleep(10);
+            //}
+            //var layer = (NodeTypeLayer3D)handle.Target;
+            //layer.Add(pointLocation);
+            Octree.MergeHeap(new KeyValuePair<IntPtr, KeyValuePair<OctreeNode, NodeCollection>>(parentNode.Octree, new KeyValuePair<OctreeNode, NodeCollection>(parentNode, mergeCollection)));
 
             var toReflow = this.ClearChildren();
             foreach (var node in toReflow)
@@ -382,12 +404,13 @@ namespace ParticleLib.Models._3D
 
         private unsafe OctreeNode GenerateLayerOctreeNode(OctreeNode? parentNode, int depth, NodeTypeLayer3D _compareTo, ulong quad, NodeCollection* nodeCollectionPtr, Point3D quadFrom, Point3D quadTo)
         {
-            var layerPtr = CreateLayerLocation(_compareTo, quadFrom, quadTo);
+            var layerPtr = CreateLayerLocation(_compareTo, quadFrom, quadTo, quad);
             var layerONode = new OctreeNode()
             {
                 NodeType = NodeType.Layer,
-                ObjPtr = layerPtr,
-                ChildExists = 0
+                LocCode = quad,
+                ChildExists = 0,
+                Quadrant = (byte)quad
             };
             layerONode.Children = nodeCollectionPtr;
             layerONode.LocCode = (parentNode.Value.LocCode | (quad << depth));
@@ -398,7 +421,7 @@ namespace ParticleLib.Models._3D
             return layerONode;
         }
 
-        private unsafe IntPtr CreateLayerLocation(NodeTypeLayer3D parentLayer, Point3D quadFrom, Point3D quadTo)
+        private ulong CreateLayerLocation(NodeTypeLayer3D parentLayer, Point3D quadFrom, Point3D quadTo, ulong quad)
         {
             //var center = (parentLayer._to - parentLayer._from) / 2;
             //var from = center + quadOff;
@@ -414,16 +437,24 @@ namespace ParticleLib.Models._3D
 
             //var from = new Point3D(xMin, yMin, zMin);
             //var to = new Point3D(xMax, yMax, zMax);
-            var layerNode = new NodeTypeLayer3D(quadFrom, quadTo, _octPtr);
-
-            var ptr = (IntPtr)GCHandle.Alloc(layerNode);
+            var layerNode = new NodeTypeLayer3D(quadFrom, quadTo, quad);
+            layerNode.ParentLayer = parentLayer;
+            //var ptr = (IntPtr)GCHandle.Alloc(layerNode);
+            //while(Octree._layers.ContainsKey(ptr))
+            //{
+            //    layerNode = new NodeTypeLayer3D(quadFrom, quadTo, quad);
+            //    layerNode.ParentLayer = parentLayer;
+            //    ptr = (IntPtr)GCHandle.Alloc(layerNode);
+            //}
+            Octree._layers[quad] = layerNode;
+            //Octree._addLayers.Enqueue(new Tuple<IntPtr, NodeTypeLayer3D>(ptr, layerNode));
 
             ////Remove this and add another ref to a point collection
             ////Then from quad calculate the point location relative to the point referenced (head = center, 000 = center/2, 111 = center * 2)
 
 
             //_locationRefs.TryAdd(ptr, layerNode);
-            return ptr;
+            return quad;
         }
     }
 
