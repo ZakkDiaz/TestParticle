@@ -145,7 +145,6 @@ namespace ParticleLib.Models._3D
                 return;
             }
 
-            //var scale = Math.Pow(2, depth / 4);
             var half = (this.To - this.From) / 2;
             var center = this.From + half;
             var x = pointLocation.Location.X > Math.Abs(center.X);
