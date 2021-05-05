@@ -12,7 +12,7 @@ namespace OctreeEngine
         public List<Particle> particles = new List<Particle>();
 
         public bool _overflow = false;
-        public bool Overflow => (_overflow || (_overflow = particles.Count() <= _particleMaxCount));
+        public bool Overflow => (_overflow || (_overflow = particles.Count() >= _particleMaxCount));
         public ulong Location { get; }
         public OctreeCellCollection(Point3D from, Point3D to, ulong location) : base(from, to)
         {
@@ -39,13 +39,7 @@ namespace OctreeEngine
 
         private IEnumerable<Tuple<ulong, byte, Particle>> FlowParticles(IEnumerable<Particle> particle)
         {
-            int depth = 0;
-            var _cDepth = Location;
-            while(_cDepth > 0)
-            {
-                _cDepth = _cDepth << 4;
-                depth += 4;
-            }
+            var depth = Helpers.GetDepth(Location);
             var toFlow = particle.Select((p) => GenerateFlow(p, depth));
             return toFlow;
         }
@@ -57,7 +51,7 @@ namespace OctreeEngine
             var center = this.From + half;
             var quad = GetQuad(pLoc, center);
             //var location = parentNode.LocCode | (quad << depth);
-            var location = (Location << 4) | (quad << depth);
+            var location = (Location << 4) | (quad);
             return new Tuple<ulong, byte, Particle>(location, (byte)quad, particle);
         }
 

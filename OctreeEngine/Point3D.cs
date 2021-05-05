@@ -51,4 +51,4 @@ namespace OctreeEngine
         public float Z { get; set; } = 0;
     }
 }
-}
+
