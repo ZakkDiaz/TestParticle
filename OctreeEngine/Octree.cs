@@ -85,6 +85,14 @@ namespace OctreeEngine
                 {
                     //_octreeCollections[group.Key].particles.AddRange(group.Select(g => g.Item3));
                     MapCellGroupToOctree(group.Key, head);
+
+                    Helpers.NavigateTo(head, group.Key, out OctreeCell toCell);
+
+                    if (!_octreeCollections.ContainsKey(toCell._location))
+                    {
+                        var depth = Helpers.GetDepth(toCell._location);
+                        AddCellForLocation(this.From, this.To, head._location, toCell._location);
+                    }
                     ProcessMergelist();
 
                     _octreeCollections[group.Key].particles.AddRange(group.Select(s => s.Item3));
@@ -118,18 +126,12 @@ namespace OctreeEngine
             }
         }
 
-        private void MapCellGroupToOctree(ulong key, OctreeCell head)
+        private void MapCellGroupToOctree(ulong key, OctreeCell fromCell)
         {
-            OctreeCell current = head;
-            ulong _location = current._location;
-            current = current.NavigateTo(_location, key);
-
-            if (!_octreeCollections.ContainsKey(current._location))
-            {
-                var depth = Helpers.GetDepth(current._location);
-                AddCellForLocation(this.From, this.To, _location, current._location);
-            }
+            fromCell.CreateCellByByte(key);
         }
+
+
 
         private void AddCellForLocation(Point3D from, Point3D to, ulong fromLoc, ulong newLocation)
         {
@@ -139,6 +141,9 @@ namespace OctreeEngine
             var totSize = (to - from);
             var half = (totSize) / (float)Math.Pow(2, toDepth - fromDepth);
             var center = from + half;
+
+
+
             var quad = Helpers.GetQuad(newLocation);
 
             Point3D fromOff = null;
@@ -178,7 +183,7 @@ namespace OctreeEngine
             }
             else
             {
-                AddCellForLocation(from + fromOff, from + fromOff + half, fromLoc << 4, newLocation);
+                AddCellForLocation(from + fromOff, from + fromOff + half, (fromLoc << 4 | quad), newLocation);
             }
 
         }

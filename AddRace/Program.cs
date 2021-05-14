@@ -14,19 +14,21 @@ namespace AddRace
             octree = new OctreeEngine.Octree(new OctreeEngine.Point3D(0, 0, 0), new OctreeEngine.Point3D(100, 100, 100));
 
             octree.Start();
+            Random r = new Random(0);
 
-            octree.AddMany(new List<Particle>() {
-                new Particle(new Point3D(49, 49, 49)),
-                new Particle(new Point3D(49, 49, 51)),
-                new Particle(new Point3D(49, 51, 49)),
-                new Particle(new Point3D(49, 51, 51)),
-                new Particle(new Point3D(51, 49, 49)),
-                new Particle(new Point3D(51, 49, 51)),
-                new Particle(new Point3D(51, 51, 49)),
-                new Particle(new Point3D(51, 51, 51)),
-                new Particle(new Point3D(51, 49, 49)),
-                new Particle(new Point3D(49, 49, 51)),
-            });
+            for (var i = 0; i < 10; i++)
+            {
+                octree.AddMany(new List<Particle>() {
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 45)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 55)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 45)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 55)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 45)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 45, (float)(r.NextDouble() * 5) + 55)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 45)),
+                    new Particle(new Point3D((float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 55, (float)(r.NextDouble() * 5) + 55)),
+                });
+            }
         }
     }
 }
