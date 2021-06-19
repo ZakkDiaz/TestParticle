@@ -18,6 +18,11 @@ namespace ParticleLib.Models._3D
         private ConcurrentDictionary<IntPtr, NodeTypeLocation3D> _objRefs = new ConcurrentDictionary<IntPtr, NodeTypeLocation3D>();
         private ConcurrentDictionary<IntPtr, NodeTypeLayer3D> _locationRefs = new ConcurrentDictionary<IntPtr, NodeTypeLayer3D>();
 
+        public List<NodeCollection> GetCollections()
+        {
+            return _octreeHeap.Select(h => h.Value).ToList();
+        }
+
         public void ProcessParticles(IParticleProcessor particleProcessor)
         {
             particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);

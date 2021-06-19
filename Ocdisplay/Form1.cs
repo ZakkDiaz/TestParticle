@@ -25,6 +25,7 @@ namespace Ocdisplay
         bool _mouseDown = false;
         BackgroundWorker adder;
         BackgroundWorker drawer;
+        BackgroundWorker physics;
         public Form1()
         {
             InitializeComponent();
@@ -42,7 +43,27 @@ namespace Ocdisplay
             drawer = new BackgroundWorker();
             drawer.DoWork += Drawer_DoWork;
             drawer.RunWorkerAsync();
+            physics = new BackgroundWorker();
+            physics.DoWork += Physics_DoWork;
+            physics.RunWorkerAsync();
             //Application.Idle += HandleApplicationIdle;
+        }
+
+        private int physicsInterval = 10000000;
+        private int physicsCount = 0;
+        private void Physics_DoWork(object sender, DoWorkEventArgs e)
+        {
+            while(true)
+            {
+                physicsCount++;
+                if (physicsCount == physicsInterval)
+                {
+                    var collections = _octree.GetCollections();
+                    Parallel.ForEach(collections, (collection) => {
+                        collection.SumPhysics();
+                    });
+                }
+            }
         }
 
         bool doDraw = false;
@@ -120,7 +141,7 @@ namespace Ocdisplay
         //    }
         //}
 
-        private int renderInterval = 10000;
+        private int renderInterval = 10000000;
         private int renderCount = 0;
         private int radius = 25;
         private unsafe void Adder_DoWork(object sender, DoWorkEventArgs e)
@@ -153,7 +174,6 @@ namespace Ocdisplay
                             }
                             //Draw();
                             doDraw = true;
-
 
                         }
                         catch (Exception ex)

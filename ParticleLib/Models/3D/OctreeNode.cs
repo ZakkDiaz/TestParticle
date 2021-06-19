@@ -14,9 +14,17 @@ namespace ParticleLib.Models._3D
         public NodeType NodeType { get; set; }
         public IntPtr ObjPtr { get; set; }
         public Byte Quadrant { get; set; }
+
+        //The forces either represent forces coming into the system, or being accumulated from contained components
+        //public bool IsInboundTransfer { get; set; }
         public DimensionProperty ForceX { get; set; }
         public DimensionProperty ForceY { get; set; }
         public DimensionProperty ForceZ { get; set; }
+
+        public void SumPhysics()
+        {
+
+        }
 
         unsafe public OctreeNode(NodeCollection* children, OctreeNode?* parent, UInt32 locCode, Byte childExists, NodeType nodeType, IntPtr objPtr, Byte quadrant)
         {
