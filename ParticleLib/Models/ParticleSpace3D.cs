@@ -10,7 +10,7 @@ namespace ParticleLib.Models
     {
         private UnityEngine.Vector3 from;
         private UnityEngine.Vector3 to;
-        BoundsOctree<T> particles;
+        PointOctree<T> particles;
         //QuadTreeRect<T> particles;
 
         public ParticleSpace3D(Vector3 _from, Vector3 _to)
@@ -19,13 +19,13 @@ namespace ParticleLib.Models
             to = _to;
             var diff = (to - from);
             var center = (to + from) / 2;
-            particles = new BoundsOctree<T>(15, Vector3.zero, 1f, 1.25f);
+            particles = new PointOctree<T>(15, Vector3.zero, .001f);
             //particles = new QuadTreeRect<T>(from.X, from.Y, to.X - from.X, to.Y - from.Y);
         }
 
         public void AddParticle(T particle)
         {
-            particles.Add(particle, particle.AABB);
+            particles.Add(particle, particle.Location);
         }
 
         //public List<T> GetParticles()
@@ -37,10 +37,10 @@ namespace ParticleLib.Models
         //    return particles.nodes.Select(n => n.Bounds).ToArray();
         //}
 
-        internal void ProcessEntityState(Bounds bounds, Action<List<T>> p)
+        internal void ProcessEntityState(Vector3 location, Action<List<T>> p)
         {
             var items = new List<T>();
-            particles.GetColliding(items, bounds);
+            particles.GetNearby(new Ray(location, Vector3.zero), 100);
             p.Invoke(items);
         }
 
@@ -51,13 +51,13 @@ namespace ParticleLib.Models
 
         internal void Add(T p)
         {
-            particles.Add(p, p.AABB);
+            particles.Add(p, p.Location);
         }
 
         internal void Move(T p)
         {
             particles.Remove(p);
-            particles.Add(p, p.AABB);
+            particles.Add(p, p.Location);
         }
     }
 }

@@ -35,7 +35,7 @@ namespace ParticleLib.Models
             int dist = BOUNDS.Item1 / 2;
             foreach (var p in pList)
             {
-                space.ProcessEntityState(p.AABB, (p2) =>
+                space.ProcessEntityState(p.Location, (p2) =>
                 {
                     p.InteractWith(p2, toRemove, toAdd, diff);
                 });

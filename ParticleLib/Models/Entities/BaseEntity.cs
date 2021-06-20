@@ -14,7 +14,7 @@ namespace ParticleLib.Models.Entities
         public T Entity { get; }
         public string EntityName => nameof(T);
 
-        public Bounds AABB => Entity.Location;
+        public Vector3 Location => Entity.Location;
 
         public BaseEntity(T entity)
         {

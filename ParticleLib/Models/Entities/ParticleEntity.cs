@@ -3,12 +3,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using UnityEngine;
 
 namespace ParticleLib.Models.Entities
 {
     public class ParticleEntity : ITimesteppableLocationEntity
     {
-        public (float, float) pos() => (dimenisons[0].pos, dimenisons[1].pos);
+        public (float, float, float) pos() => (dimenisons[0].pos, dimenisons[1].pos, dimenisons[2].pos);
 
         void ITimesteppableEntity.ProcessTimestep(float diff, (float, float) focus, (int, int, int) BOUNDS)
         {
@@ -34,7 +35,7 @@ namespace ParticleLib.Models.Entities
         public bool isDead { get; set; }
         public int splitCount { get; internal set; }
         public BaseEntity<ITimesteppableLocationEntity> parentRef { get; set; }
-        public RectangleF Rect => new RectangleF(pos().Item1, pos().Item2, (float)Math.Sqrt(mass), (float)Math.Sqrt(mass));
+        public Vector3 Location => new Vector3(pos().Item1, pos().Item2, pos().Item3);
     }
 
     public static class ParticleEntityExtensions
