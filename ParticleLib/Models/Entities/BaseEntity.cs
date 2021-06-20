@@ -1,17 +1,21 @@
-﻿using QuadTrees.QTreeRect;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using UnityEngine;
 
 namespace ParticleLib.Models.Entities
 {
-    public class BaseEntity<T> : IRectQuadStorable where T : ITimesteppableLocationEntity
+    public class BaseEntity<T> where T : ITimesteppableLocationEntity
+        //: IRectQuadStorable where T : ITimesteppableLocationEntity
+        
     {
-        public RectangleF Rect => Entity.Rect;
         public T Entity { get; }
         public string EntityName => nameof(T);
+
+        public Bounds AABB => Entity.Location;
+
         public BaseEntity(T entity)
         {
             Entity = entity;

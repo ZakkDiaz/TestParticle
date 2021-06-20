@@ -6,7 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="QuadTrees" Version="1.0.2" />
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

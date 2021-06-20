@@ -1,5 +1,4 @@
-﻿using QuadTrees.QTreeRect;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
@@ -11,7 +10,7 @@ namespace ParticleLib.Models.Entities
     {
         public (float, float) pos() => (dimenisons[0].pos, dimenisons[1].pos);
 
-        void ITimesteppableEntity.ProcessTimestep(float diff, (float, float) focus, (int, int) BOUNDS)
+        void ITimesteppableEntity.ProcessTimestep(float diff, (float, float) focus, (int, int, int) BOUNDS)
         {
             ParticleEntityExtensions.ProcessTimestep(this, diff, focus, BOUNDS);
         }
@@ -40,7 +39,7 @@ namespace ParticleLib.Models.Entities
 
     public static class ParticleEntityExtensions
     {
-        public static void ProcessTimestep(this ParticleEntity entity, float diff, (float, float) focus, (int, int) BOUNDS)
+        public static void ProcessTimestep(this ParticleEntity entity, float diff, (float, float) focus, (int, int, int) BOUNDS)
         {
             foreach (var p in entity.dimenisons)
             {
