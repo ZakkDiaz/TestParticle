@@ -11,7 +11,7 @@ namespace ParticleLib.Models.Entities
     {
         public (float, float, float) pos() => (dimenisons[0].pos, dimenisons[1].pos, dimenisons[2].pos);
 
-        void ITimesteppableEntity.ProcessTimestep(float diff, (float, float) focus, (int, int, int) BOUNDS)
+        void ITimesteppableEntity.ProcessTimestep(float diff, Vector2 focus, Vector2 BOUNDS)
         {
             ParticleEntityExtensions.ProcessTimestep(this, diff, focus, BOUNDS);
         }
@@ -40,7 +40,7 @@ namespace ParticleLib.Models.Entities
 
     public static class ParticleEntityExtensions
     {
-        public static void ProcessTimestep(this ParticleEntity entity, float diff, (float, float) focus, (int, int, int) BOUNDS)
+        public static void ProcessTimestep(this ParticleEntity entity, float diff, Vector2 focus, Vector3 BOUNDS)
         {
             foreach (var p in entity.dimenisons)
             {
@@ -59,7 +59,7 @@ namespace ParticleLib.Models.Entities
 
         public static void AccelToPoint(this ParticleEntity entity, (float X, float Y) fromLocation, (float X, float Y) toLocation, float amt = 1)
         {
-            var angle = MathExtensions.AngleFor((fromLocation.X, fromLocation.Y), (toLocation.X, toLocation.Y));
+            var angle = MathExtensions.AngleFor(new Vector2(fromLocation.X, fromLocation.Y), new Vector2(toLocation.X, toLocation.Y));
             var x = Math.Cos(angle);
             var y = Math.Sin(angle);
             var _breaks = 5f / amt;
@@ -91,7 +91,7 @@ namespace ParticleLib.Models.Entities
         {
             var shellMult = 10;
             var dist = entity.DistanceFrom(p2) / shellMult;
-            return (dist < entity.Rect.Width || dist < p2.Rect.Width);
+            return (dist < Math.Sqrt(entity.mass) || dist < Math.Sqrt(entity.mass));
         }
 
         internal static void SetSpeed(this ParticleEntity entity, (float, float) vel)
@@ -141,9 +141,9 @@ namespace ParticleLib.Models.Entities
             entity.dimenisonsEntanglements = new List<Tuple<DimensionProperty, DimensionProperty>>();
             entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty>(x, y));
         }
-        public static float AngleFor(this ParticleEntity entity, (float X, float Y) relativePoint)
+        public static float AngleFor(this ParticleEntity entity, Vector3 relativePoint)
         {
-            return MathExtensions.AngleFor((relativePoint.Y - entity.pos().Item2), (relativePoint.X - entity.pos().Item1));
+            return MathExtensions.AngleFor(entity.Location, relativePoint);
         }
 
         internal static void Interact<T>(this ParticleEntity entity, IEnumerable<T> p2, ConcurrentBag<T> toRemove, ConcurrentBag<T> toAdd, float diff) where T : BaseEntity<ITimesteppableLocationEntity>
@@ -164,7 +164,7 @@ namespace ParticleLib.Models.Entities
             if (entity != null && p2 != null)
                 if (entity != p2)
                 {
-                    var angleRads = entity.AngleFor(p2.pos());
+                    var angleRads = entity.AngleFor(p2.Location);
                     var dist = entity.DistanceFrom(p2);
                     var mt = (entity.mass + p2.mass);
                     if (entity.Intersects(p2))

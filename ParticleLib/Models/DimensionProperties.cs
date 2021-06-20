@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using UnityEngine;
 
 namespace ParticleLib.Models
 {
@@ -45,7 +46,7 @@ namespace ParticleLib.Models
     }
     public static class DimensionPropertyExtensions
     {
-        public static void ProcessTimestep(this DimensionProperty entity, float stepSize, float mass, (int, int, int) BOUNDS)
+        public static void ProcessTimestep(this DimensionProperty entity, float stepSize, float mass, Vector3 BOUNDS)
         {
             entity.ProcessRotation(stepSize, mass);
             entity.ProcessPosition(stepSize, mass, BOUNDS);
@@ -63,7 +64,7 @@ namespace ParticleLib.Models
             }
         }
 
-        private static void ProcessPosition(this DimensionProperty entity, float stepSize, float mass, (int, int, int) BOUNDS)
+        private static void ProcessPosition(this DimensionProperty entity, float stepSize, float mass, Vector2 BOUNDS)
         {
             if (entity.acc != 0)
             {
@@ -75,13 +76,13 @@ namespace ParticleLib.Models
             }
 
             entity.pos += entity.vel;
-            if (entity.pos > BOUNDS.Item1)
+            if (entity.pos > BOUNDS.x)
             {
                 entity.pos = 0;
             }
             if (entity.pos < 0)
             {
-                entity.pos = BOUNDS.Item2;
+                entity.pos = BOUNDS.y;
             }
         }
 
@@ -94,7 +95,7 @@ namespace ParticleLib.Models
             entity.rot = 0;
             entity.rac = y;
         }
-        internal static void ProcessEntanglements(this DimensionProperty entity, float stepSize, DimensionProperty item2, (float, float) target, bool isSeeking = false)
+        internal static void ProcessEntanglements(this DimensionProperty entity, float stepSize, DimensionProperty item2, Vector2 target, bool isSeeking = false)
         {
             var velocity = Math.Sqrt(Math.Pow(item2.vel, 2) + Math.Pow(entity.vel, 2));
             var angle = Math.Atan2(item2.vel, entity.vel);
@@ -118,9 +119,9 @@ namespace ParticleLib.Models
             }
         }
 
-        internal static float AngleFor(this DimensionProperty entity, DimensionProperty other, (float X, float Y) to)
+        internal static float AngleFor(this DimensionProperty entity, DimensionProperty other, Vector2 to)
         {
-            return MathExtensions.AngleFor((to.Y - other.pos), (to.X - entity.pos));
+            return (float)(Math.Atan2(to.y - other.pos, to.x - entity.pos));
         }
 
     }
