@@ -247,7 +247,7 @@ public class PointOctreeNode<T> {
 		Gizmos.color = new Color(0, 1.0f - tintVal, tintVal, 0.25f);
 
 		foreach (OctreeObject obj in objects) {
-			Gizmos.DrawIcon(obj.Pos, "marker.tif", true);
+			Gizmos.DrawSphere(obj.Pos, .1f);
 		}
 
 		if (children != null) {

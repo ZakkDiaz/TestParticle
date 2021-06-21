@@ -5,21 +5,22 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace ParticleLib.Models
 {
 
     public static class ParticleSpace2DExtensions
     {
-        public static void ProcessTimestep<T>(this ParticleSpace3D<T> space, List<T> particles, float diff, (float, float) focus, (int, int, int) BOUNDS) where T : BaseEntity<ITimesteppableLocationEntity>
+        public static void ProcessTimestep(this ParticleSpace3D space, List<ParticleEntity> particles, float diff, Vector3 focus, Vector3 BOUNDS)
         {
-            Parallel.ForEach<T>(particles, (p) =>
+            Parallel.ForEach(particles, (p) =>
             {
                 ProcessEntity(p, diff, focus, BOUNDS);
             });
 
-            ConcurrentBag<T> toRemove = new ConcurrentBag<T>();
-            ConcurrentBag<T> toAdd = new ConcurrentBag<T>();
+            ConcurrentBag<ParticleEntity> toRemove = new ConcurrentBag<ParticleEntity>();
+            ConcurrentBag<ParticleEntity> toAdd = new ConcurrentBag<ParticleEntity>();
             ProcessEntityStates(space, BOUNDS, particles, toRemove, toAdd, diff);
 
 
@@ -30,14 +31,14 @@ namespace ParticleLib.Models
                 space.Add(p);
         }
 
-        private static void ProcessEntityStates<T>(this ParticleSpace3D<T> space, (int, int, int) BOUNDS, List<T> pList, ConcurrentBag<T> toRemove, ConcurrentBag<T> toAdd, float diff) where T : BaseEntity<ITimesteppableLocationEntity>
+        private static void ProcessEntityStates(this ParticleSpace3D space, Vector3 BOUNDS, List<ParticleEntity> pList, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {
-            int dist = BOUNDS.Item1 / 2;
+            //int dist = BOUNDS.x / 2;
             foreach (var p in pList)
             {
                 space.ProcessEntityState(p.Location, (p2) =>
                 {
-                    p.InteractWith(p2, toRemove, toAdd, diff);
+                    p.Interact(p2, toRemove, toAdd, diff);
                 });
             }
 
@@ -48,6 +49,6 @@ namespace ParticleLib.Models
             }
         }
 
-        private static void ProcessEntity<T>(T p, float diff, (float, float) focus, (int, int, int) BOUNDS) where T : BaseEntity<ITimesteppableLocationEntity> => p.Entity.ProcessTimestep(diff, focus, BOUNDS);
+        private static void ProcessEntity(ParticleEntity p, float diff, Vector2 focus, Vector3 BOUNDS) => p.ProcessTimestep(diff, focus, BOUNDS);
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using UnityEngine;
+using Random = System.Random;
 
 namespace ParticleLib.Models
 {
@@ -31,6 +33,11 @@ namespace ParticleLib.Models
         internal static float Next_a()
         {
             return (float)((Next_s() * Math.PI * 2) - Math.PI);
+        }
+
+        internal static Vector3 Next_v3()
+        {
+            return new Vector3((float)((Next_s() * Math.PI * 2) - Math.PI), (float)((Next_s() * Math.PI * 2) - Math.PI), (float)((Next_s() * Math.PI * 2) - Math.PI));
         }
 
         public static float Next(float low, float high, bool split = false)

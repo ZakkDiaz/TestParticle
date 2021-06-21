@@ -9,7 +9,7 @@ namespace ParticleLib.Models.Entities
 {
     public class ParticleEntity : ITimesteppableLocationEntity
     {
-        public (float, float, float) pos() => (dimenisons[0].pos, dimenisons[1].pos, dimenisons[2].pos);
+        public Vector3 pos() => new Vector3(dimenisons[0].pos, dimenisons[1].pos, dimenisons[2].pos);
 
         void ITimesteppableEntity.ProcessTimestep(float diff, Vector2 focus, Vector2 BOUNDS)
         {
@@ -34,8 +34,8 @@ namespace ParticleLib.Models.Entities
         public bool isSeeking { get; internal set; }
         public bool isDead { get; set; }
         public int splitCount { get; internal set; }
-        public BaseEntity<ITimesteppableLocationEntity> parentRef { get; set; }
-        public Vector3 Location => new Vector3(pos().Item1, pos().Item2, pos().Item3);
+        //public BaseEntity<ITimesteppableLocationEntity> parentRef { get; set; }
+        public Vector3 Location { get; set; }
     }
 
     public static class ParticleEntityExtensions
@@ -55,16 +55,22 @@ namespace ParticleLib.Models.Entities
 
             if (entity.isEvaporating)
                 entity.mass -= (entity._deltaStep * diff) / 10;
+
+
+            entity.UpdateLocation();
         }
 
-        public static void AccelToPoint(this ParticleEntity entity, (float X, float Y) fromLocation, (float X, float Y) toLocation, float amt = 1)
+        public static void AccelToPoint(this ParticleEntity entity, Vector3 fromLocation, Vector3 toLocation, float amt = 1)
         {
-            var angle = MathExtensions.AngleFor(new Vector2(fromLocation.X, fromLocation.Y), new Vector2(toLocation.X, toLocation.Y));
-            var x = Math.Cos(angle);
-            var y = Math.Sin(angle);
+            var angleX = MathExtensions.AngleFor(new Vector3(fromLocation.x, 0, 0), new Vector3(toLocation.x, 0, 0));
+            var angleY = MathExtensions.AngleFor(new Vector3(0, fromLocation.y, 0), new Vector3(0, toLocation.y, 0));
+            var angleZ = MathExtensions.AngleFor(new Vector3(0, 0, fromLocation.z), new Vector3(0, 0, toLocation.z));
+            //var x = Math.Cos(angle);
+            //var y = Math.Sin(angle);
             var _breaks = 5f / amt;
-            entity.dimenisons[0].AddAccel((float)x / _breaks);
-            entity.dimenisons[1].AddAccel((float)y / _breaks);
+            entity.dimenisons[0].AddAccel((float)angleX.x / _breaks);
+            entity.dimenisons[1].AddAccel((float)angleY.y / _breaks);
+            entity.dimenisons[2].AddAccel((float)angleZ.z / _breaks);
         }
 
         public static void AddAccel(this ParticleEntity entity, int dimension, float acc)
@@ -74,17 +80,14 @@ namespace ParticleLib.Models.Entities
 
         internal static float DistanceFrom(this ParticleEntity entity, ParticleEntity p2)
         {
-            return Math.Abs((p2.dimenisons[0].pos - entity.dimenisons[0].pos) + (p2.dimenisons[1].pos - entity.dimenisons[1].pos));
+            return Math.Abs((p2.dimenisons[0].pos - entity.dimenisons[0].pos) + (p2.dimenisons[1].pos - entity.dimenisons[1].pos) + (p2.dimenisons[2].pos - entity.dimenisons[2].pos));
         }
 
-        internal static void AddForce(this ParticleEntity entity, float fAngle, float forceMult)
+        internal static void AddForce(this ParticleEntity entity, Vector3 angle, float forceMult)
         {
-            var cos = Math.Cos(fAngle);
-            var sin = Math.Sin(fAngle);
-
-            entity.dimenisons[0].AddVel((float)(cos * forceMult));
-            entity.dimenisons[1].AddVel((float)(sin * forceMult));
-
+            entity.dimenisons[0].AddVel((float)(angle.x * forceMult));
+            entity.dimenisons[1].AddVel((float)(angle.y * forceMult));
+            entity.dimenisons[2].AddVel((float)(angle.z * forceMult));
         }
 
         internal static bool Intersects(this ParticleEntity entity, ParticleEntity p2)
@@ -94,29 +97,26 @@ namespace ParticleLib.Models.Entities
             return (dist < Math.Sqrt(entity.mass) || dist < Math.Sqrt(entity.mass));
         }
 
-        internal static void SetSpeed(this ParticleEntity entity, (float, float) vel)
+        internal static void SetSpeed(this ParticleEntity entity, Vector3 vel)
         {
-            entity.dimenisons[0].SetVel(vel.Item1);
-            entity.dimenisons[1].SetVel(vel.Item2);
+            entity.dimenisons[0].SetVel(vel.x);
+            entity.dimenisons[1].SetVel(vel.y);
+            entity.dimenisons[2].SetVel(vel.z);
         }
 
-        internal static (float X, float Y) vel(this ParticleEntity entity)
+        internal static Vector3 vel(this ParticleEntity entity)
         {
-            return (entity.dimenisons[0].vel, entity.dimenisons[1].vel);
+            return new Vector3(entity.dimenisons[0].vel, entity.dimenisons[1].vel, entity.dimenisons[2].vel);
         }
 
-        internal static float angle(this ParticleEntity entity)
+        internal static void AddSpeed(this ParticleEntity entity, Vector3 vel)
         {
-            return (float)(Math.Atan2(entity.dimenisons[1].vel, entity.dimenisons[0].vel));
+            entity.dimenisons[0].AddVel(vel.x);
+            entity.dimenisons[1].AddVel(vel.y);
+            entity.dimenisons[2].AddVel(vel.z);
         }
 
-        internal static void AddSpeed(this ParticleEntity entity, (float, float) vel)
-        {
-            entity.dimenisons[0].AddVel(vel.Item1);
-            entity.dimenisons[1].AddVel(vel.Item2);
-        }
-
-        public static void ParticleInit(this ParticleEntity entity, float dStep, float _mass, float posX = 0, float posY = 0, float _duration = 1000, float rotX = 0, float rotY = 0, bool isEvap = false, bool isSeek = false, int _splitCount = 0, float velX = 0, float velY = 0, bool _isAsorb = false)
+        public static void ParticleInit(this ParticleEntity entity, float dStep, float _mass, float posX = 0, float posY = 0, float posZ = 0, float _duration = 1000, float rotX = 0, float rotY = 0, float rotZ = 0, bool isEvap = false, bool isSeek = false, int _splitCount = 0, float velX = 0, float velY = 0, float velZ = 0, bool _isAsorb = false)
         {
             entity._deltaStep = dStep;
             entity.mass = _mass;
@@ -136,29 +136,31 @@ namespace ParticleLib.Models.Entities
             entity.dimenisons = new List<DimensionProperty>();
             var x = new DimensionProperty(0, posX, rotX, velX);
             var y = new DimensionProperty(1, posY, rotY, velY);
+            var z = new DimensionProperty(2, posZ, rotZ, velZ);
             entity.dimenisons.Add(x);
             entity.dimenisons.Add(y);
+            entity.dimenisons.Add(z);
             entity.dimenisonsEntanglements = new List<Tuple<DimensionProperty, DimensionProperty>>();
             entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty>(x, y));
+            entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty>(y, z));
+            entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty>(x, z));
+            entity.UpdateLocation();
         }
-        public static float AngleFor(this ParticleEntity entity, Vector3 relativePoint)
+        public static Vector3 AngleFor(this ParticleEntity entity, Vector3 relativePoint)
         {
             return MathExtensions.AngleFor(entity.Location, relativePoint);
         }
 
-        internal static void Interact<T>(this ParticleEntity entity, IEnumerable<T> p2, ConcurrentBag<T> toRemove, ConcurrentBag<T> toAdd, float diff) where T : BaseEntity<ITimesteppableLocationEntity>
+        internal static void Interact(this ParticleEntity entity, IEnumerable<ParticleEntity> p2, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {
-            foreach(T entity2 in p2)
+            foreach(var entity2 in p2)
             {
-                if(entity2.Entity is ParticleEntity)
-                {
-                    DoParticleInteraction(entity, (ParticleEntity)(entity2.Entity), toRemove, toAdd, diff);
-                }
+                DoParticleInteraction(entity, entity2, toRemove, toAdd, diff);
             }
             
         }
 
-        private static void DoParticleInteraction<T>(ParticleEntity entity, ParticleEntity p2, ConcurrentBag<T> toRemove, ConcurrentBag<T> toAdd, float diff) where T : BaseEntity<ITimesteppableLocationEntity>
+        private static void DoParticleInteraction(ParticleEntity entity, ParticleEntity p2, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {
 
             if (entity != null && p2 != null)
@@ -169,55 +171,61 @@ namespace ParticleLib.Models.Entities
                     var mt = (entity.mass + p2.mass);
                     if (entity.Intersects(p2))
                     {
-                        var vTot = (float)Math.Sqrt(Math.Pow(Math.Abs(entity.vel().X * entity.mass / mt), 2) + Math.Pow(Math.Abs(entity.vel().Y * entity.mass / mt), 2));
-                        var v2Tot = (float)Math.Sqrt(Math.Pow(Math.Abs(p2.vel().X * entity.mass / mt), 2) + Math.Pow(Math.Abs(p2.vel().Y * entity.mass / mt), 2));
-                        if (entity.isAsorb)
-                        {
-                            var np = new ParticleEntity();
-                            np.ParticleInit(10f, mt, (entity.pos().Item1 + p2.pos().Item1) / 2, (entity.pos().Item2 + p2.pos().Item1) / 2, entity.duration + p2.duration, 0, 0, false, entity.isSeeking, 0, vTot, v2Tot);
-                            toRemove.Add((T)(object)(entity.parentRef));
-                            toRemove.Add((T)(object)(p2.parentRef));
-                            toAdd.Add((T)(object)(np));
-                        }
-                        else
-                        {
-                            //var absV = vTot + v2Tot;
-                            //var vt_ratio = vTot / absV;
-                            //var vt2_ratio = v2Tot / absV;
+                        //var vTot = (float)Math.Sqrt(Math.Pow(Math.Abs(entity.vel().x * entity.mass / mt), 2) + Math.Pow(Math.Abs(entity.vel().y * entity.mass / mt), 2));
+                        //var v2Tot = (float)Math.Sqrt(Math.Pow(Math.Abs(p2.vel().x * entity.mass / mt), 2) + Math.Pow(Math.Abs(p2.vel().y * entity.mass / mt), 2));
+                        //if (entity.isAsorb)
+                        //{
+                        //    var np = new ParticleEntity();
+                        //    np.ParticleInit(10f, mt, (entity.pos().Item1 + p2.pos().Item1) / 2, (entity.pos().Item2 + p2.pos().Item2) / 2, (entity.pos().Item3 + p2.pos().Item3) / 2, entity.duration + p2.duration, 0, 0, 0, false, entity.isSeeking, 0, vTot, v2Tot, v3Tot);
+                        //    toRemove.Add((T)(object)(entity.parentRef));
+                        //    toRemove.Add((T)(object)(p2.parentRef));
+                        //    toAdd.Add((T)(object)(np));
+                        //}
+                        //else
+                        //{
+                        //    //var absV = vTot + v2Tot;
+                        //    //var vt_ratio = vTot / absV;
+                        //    //var vt2_ratio = v2Tot / absV;
 
-                            //var v1Ang = p.angle();
-                            //var v2Ang = p2.angle();
+                        //    //var v1Ang = p.angle();
+                        //    //var v2Ang = p2.angle();
 
-                            //var p1Dif = v1Ang - angleRads;
-                            //var p2Dif = v2Ang - angleRads;
+                        //    //var p1Dif = v1Ang - angleRads;
+                        //    //var p2Dif = v2Ang - angleRads;
 
 
-                            //var p1Vals = ((float)Math.Cos(p1Dif) * (p2.mass), (float)Math.Sin(p1Dif) * (p2.mass));
-                            //var p2Vals = ((float)Math.Sin(p2Dif) * (p.mass), (float)Math.Cos(p2Dif) * (p.mass));
+                        //    //var p1Vals = ((float)Math.Cos(p1Dif) * (p2.mass), (float)Math.Sin(p1Dif) * (p2.mass));
+                        //    //var p2Vals = ((float)Math.Sin(p2Dif) * (p.mass), (float)Math.Cos(p2Dif) * (p.mass));
 
-                            //var vTot_r = Math.Sqrt(Math.Pow(Math.Abs(p1Vals.Item1), 2) + Math.Pow(Math.Abs(p1Vals.Item2), 2));
-                            //var v2Tot_r = Math.Sqrt(Math.Pow(Math.Abs(p2Vals.Item1), 2) + Math.Pow(Math.Abs(p2Vals.Item2), 2));
-                            //var absV_r = vTot_r + v2Tot_r;
+                        //    //var vTot_r = Math.Sqrt(Math.Pow(Math.Abs(p1Vals.Item1), 2) + Math.Pow(Math.Abs(p1Vals.Item2), 2));
+                        //    //var v2Tot_r = Math.Sqrt(Math.Pow(Math.Abs(p2Vals.Item1), 2) + Math.Pow(Math.Abs(p2Vals.Item2), 2));
+                        //    //var absV_r = vTot_r + v2Tot_r;
 
-                            //var p1Scaled = ((float)(p1Vals.Item1 * (vTot / absV_r) * vt_ratio), (float)(p1Vals.Item2 * (vTot / absV_r) * vt_ratio));
-                            //var p2Scaled = ((float)(p2Vals.Item1 * (v2Tot_r / absV_r) * vt_ratio), (float)(p2Vals.Item2 * (v2Tot_r / absV_r) * vt_ratio));
+                        //    //var p1Scaled = ((float)(p1Vals.Item1 * (vTot / absV_r) * vt_ratio), (float)(p1Vals.Item2 * (vTot / absV_r) * vt_ratio));
+                        //    //var p2Scaled = ((float)(p2Vals.Item1 * (v2Tot_r / absV_r) * vt_ratio), (float)(p2Vals.Item2 * (v2Tot_r / absV_r) * vt_ratio));
 
-                            //p.SetSpeed(p1Scaled);
-                            //p2.SetSpeed(p2Scaled);
+                        //    //p.SetSpeed(p1Scaled);
+                        //    //p2.SetSpeed(p2Scaled);
 
-                            //p.ProcessTimestep(diff, focus);
-                            //p2.ProcessTimestep(diff, focus);
-                        }
+                        //    //p.ProcessTimestep(diff, focus);
+                        //    //p2.ProcessTimestep(diff, focus);
+                        //}
 
                     }
                     else if (entity.isGravitational && p2.isGravitational)
                     {
                         var g = 1;
                         float forceMult = (float)(((entity.mass * p2.mass)) / Math.Pow(dist, 1.4)) * g;
-                        entity.AddForce((float)angleRads, -forceMult * (p2.mass / mt) * diff * entity._deltaStep);
-                        p2.AddForce((float)angleRads, (forceMult * (entity.mass / mt) * diff * p2._deltaStep));
+                        entity.AddForce(angleRads, -forceMult * (p2.mass / mt) * diff * entity._deltaStep);
+                        p2.AddForce(angleRads, (forceMult * (entity.mass / mt) * diff * p2._deltaStep));
                     }
                 }
+        }
+
+        private static void UpdateLocation(this ParticleEntity entity)
+        {
+            var epos = entity.pos();
+            entity.Location = epos;
         }
     }
 }

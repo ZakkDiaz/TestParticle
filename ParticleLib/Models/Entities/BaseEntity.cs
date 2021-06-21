@@ -7,24 +7,24 @@ using UnityEngine;
 
 namespace ParticleLib.Models.Entities
 {
-    public class BaseEntity<T> where T : ITimesteppableLocationEntity
-        //: IRectQuadStorable where T : ITimesteppableLocationEntity
+    //public class BaseEntity : ITimesteppableLocationEntity
+    //    //: IRectQuadStorable where T : ITimesteppableLocationEntity
         
-    {
-        public T Entity { get; }
-        public string EntityName => nameof(T);
+    //{
+    //    public T Entity { get; }
+    //    public string EntityName => nameof(T);
 
-        public Vector3 Location => Entity.Location;
+    //    public Vector3 Location => Entity.Location;
 
-        public BaseEntity(T entity)
-        {
-            Entity = entity;
-        }
+    //    public BaseEntity(T entity)
+    //    {
+    //        Entity = entity;
+    //    }
 
-        internal void InteractWith<T>(IEnumerable<T> p2, ConcurrentBag<T> toRemove, ConcurrentBag<T> toAdd, float diff) where T : BaseEntity<ITimesteppableLocationEntity>
-        {
-            if (Entity is ParticleEntity)
-                ((ParticleEntity)(object)(Entity)).Interact(p2, toRemove, toAdd, diff);
-        }
-    }
+    //    internal void InteractWith<T>(IEnumerable<T> p2, ConcurrentBag<T> toRemove, ConcurrentBag<T> toAdd, float diff) where T : BaseEntity<ITimesteppableLocationEntity>
+    //    {
+    //        if (Entity is ParticleEntity)
+    //            ((ParticleEntity)(object)(Entity)).Interact(p2, toRemove, toAdd, diff);
+    //    }
+    //}
 }

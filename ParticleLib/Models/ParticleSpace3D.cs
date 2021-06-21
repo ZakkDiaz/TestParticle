@@ -6,11 +6,11 @@ using UnityEngine;
 
 namespace ParticleLib.Models
 {
-    public partial class ParticleSpace3D<T> where T : BaseEntity<ITimesteppableLocationEntity>
+    public partial class ParticleSpace3D
     {
         private UnityEngine.Vector3 from;
         private UnityEngine.Vector3 to;
-        PointOctree<T> particles;
+        PointOctree<ParticleEntity> particles;
         //QuadTreeRect<T> particles;
 
         public ParticleSpace3D(Vector3 _from, Vector3 _to)
@@ -19,12 +19,19 @@ namespace ParticleLib.Models
             to = _to;
             var diff = (to - from);
             var center = (to + from) / 2;
-            particles = new PointOctree<T>(15, Vector3.zero, .001f);
+            particles = new PointOctree<ParticleEntity>(15, Vector3.zero, .001f);
             //particles = new QuadTreeRect<T>(from.X, from.Y, to.X - from.X, to.Y - from.Y);
         }
 
-        public void AddParticle(T particle)
+        public void DrawAll()
         {
+            particles.DrawAllBounds(); // Draw node boundaries
+            particles.DrawAllObjects(); // Mark object positions
+        }
+
+        public void AddParticle(ParticleEntity particle)
+        {
+
             particles.Add(particle, particle.Location);
         }
 
@@ -37,24 +44,24 @@ namespace ParticleLib.Models
         //    return particles.nodes.Select(n => n.Bounds).ToArray();
         //}
 
-        internal void ProcessEntityState(Vector3 location, Action<List<T>> p)
+        internal void ProcessEntityState(Vector3 location, Action<List<ParticleEntity>> p)
         {
-            var items = new List<T>();
+            var items = new List<ParticleEntity>();
             particles.GetNearby(new Ray(location, Vector3.zero), 100);
             p.Invoke(items);
         }
 
-        internal void Remove(T p)
+        internal void Remove(ParticleEntity p)
         {
             particles.Remove(p);
         }
 
-        internal void Add(T p)
+        internal void Add(ParticleEntity p)
         {
             particles.Add(p, p.Location);
         }
 
-        internal void Move(T p)
+        internal void Move(ParticleEntity p)
         {
             particles.Remove(p);
             particles.Add(p, p.Location);
