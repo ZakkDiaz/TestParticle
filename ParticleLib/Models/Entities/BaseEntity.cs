@@ -9,7 +9,7 @@ namespace ParticleLib.Models.Entities
 {
     //public class BaseEntity : ITimesteppableLocationEntity
     //    //: IRectQuadStorable where T : ITimesteppableLocationEntity
-        
+
     //{
     //    public T Entity { get; }
     //    public string EntityName => nameof(T);
