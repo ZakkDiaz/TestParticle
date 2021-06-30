@@ -179,8 +179,8 @@ public class PointOctree<T> {
 	/// Draws the bounds of all objects in the tree visually for debugging.
 	/// Must be called from OnDrawGizmos externally. See also: DrawAllBounds.
 	/// </summary>
-	public void DrawAllObjects() {
-		rootNode.DrawAllObjects();
+	public void DrawAllObjects(Mesh mesh) {
+		rootNode.DrawAllObjects(mesh);
 	}
 
 	// #### PRIVATE METHODS ####

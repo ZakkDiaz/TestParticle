@@ -12,8 +12,9 @@ namespace ParticleLib.Models
 
     public static class ParticleSpace2DExtensions
     {
-        public static void ProcessTimestep(this ParticleSpace3D space, List<ParticleEntity> particles, float diff, Vector3 focus, Vector3 BOUNDS)
+        public static void ProcessTimestep(this ParticleSpace3D space, float diff, Vector3 focus, Vector3 BOUNDS)
         {
+            var particles = space.GetParticles();
             Parallel.ForEach(particles, (p) =>
             {
                 ProcessEntity(p, diff, focus, BOUNDS);

@@ -40,6 +40,11 @@ namespace ParticleLib.Models
             return new Vector3((float)((Next_s() * Math.PI * 2) - Math.PI), (float)((Next_s() * Math.PI * 2) - Math.PI), (float)((Next_s() * Math.PI * 2) - Math.PI));
         }
 
+        internal static Vector3 Next_v3f()
+        {
+            return new Vector3((float)((Next_s())), (float)((Next_s())), (float)((Next_s())));
+        }
+
         public static float Next(float low, float high, bool split = false)
         {
             var range = high - low;

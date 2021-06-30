@@ -298,7 +298,7 @@ public class BoundsOctreeNode<T> {
 	/// </summary>
 	public void DrawAllObjects() {
 		float tintVal = BaseLength / 20;
-		Gizmos.color = new Color(0, 1.0f - tintVal, tintVal, 0.25f);
+		Gizmos.color = Color.red;// new Color(0, 1.0f - tintVal, tintVal, 0.25f);
 
 		foreach (OctreeObject obj in objects) {
 			Gizmos.DrawCube(obj.Bounds.center, obj.Bounds.size);

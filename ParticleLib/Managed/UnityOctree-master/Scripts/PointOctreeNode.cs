@@ -242,17 +242,18 @@ public class PointOctreeNode<T> {
 	/// Must be called from OnDrawGizmos externally. See also: DrawAllBounds.
 	/// NOTE: marker.tif must be placed in your Unity /Assets/Gizmos subfolder for this to work.
 	/// </summary>
-	public void DrawAllObjects() {
+	public void DrawAllObjects(Mesh mesh) {
 		float tintVal = SideLength / 20;
-		Gizmos.color = new Color(0, 1.0f - tintVal, tintVal, 0.25f);
-
+		//Gizmos.color = new Color(0, 1.0f - tintVal, tintVal, 0.25f);
+		Gizmos.color = Color.red;
 		foreach (OctreeObject obj in objects) {
-			Gizmos.DrawSphere(obj.Pos, .1f);
+			Gizmos.DrawMesh(mesh, obj.Pos);
+			//Gizmos.DrawIcon(obj.Pos, "marker.tif", true);
 		}
 
 		if (children != null) {
 			for (int i = 0; i < 8; i++) {
-				children[i].DrawAllObjects();
+				children[i].DrawAllObjects(mesh);
 			}
 		}
 

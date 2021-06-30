@@ -19,7 +19,7 @@ namespace ParticleLib.Models.Entities
         {
             foreach (var p in dimensions)
             {
-                p.ProcessTimestep(deltaStep * diff, mass, BOUNDS);
+                p.ProcessTimestep(.1f, mass, BOUNDS);
             }
         }
     }
