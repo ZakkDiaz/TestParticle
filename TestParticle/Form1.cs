@@ -22,7 +22,7 @@ namespace TestParticle
         {
             FormBorderStyle = FormBorderStyle.None;
             WindowState = FormWindowState.Maximized;
-            size = new Point(1000, 1000); 
+            size = new Point(1000, 1000);
             this.DoubleBuffered = true;
             graphics = this.CreateGraphics();
             //logic & rendering
@@ -52,7 +52,7 @@ namespace TestParticle
                 for (var i = 0; i < 1; i++)
                 {
                     //center - new Point(size.X / 2, size.Y / 2)
-                    var at = new Point((int)(size.X - (size.X * (particleEmitter.location.X) / 1000f)),(int)(size.Y - (size.X * (particleEmitter.location.Y / 1000f))));
+                    var at = new Point((int)(size.X - (size.X * (particleEmitter.location.X) / 1000f)), (int)(size.Y - (size.X * (particleEmitter.location.Y / 1000f))));
                     EmitParticle(at, ThreadSafeRandom.Next(.01f, 1f, true));
                 }
             }
@@ -64,9 +64,9 @@ namespace TestParticle
                 }
             }
 
-            lock(_pklock)
-            if(!PressedKeys.ContainsKey((Keys)e.KeyboardData.VirtualCode))
-                PressedKeys.Add((Keys)e.KeyboardData.VirtualCode, false);
+            lock (_pklock)
+                if (!PressedKeys.ContainsKey((Keys)e.KeyboardData.VirtualCode))
+                    PressedKeys.Add((Keys)e.KeyboardData.VirtualCode, false);
             PressedKeys[(Keys)e.KeyboardData.VirtualCode] = e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyDown;
 
             if (e.KeyboardState == GlobalKeyboardHook.KeyboardState.KeyUp)
@@ -143,7 +143,7 @@ namespace TestParticle
             particleEmitter.EmitParticle(ref particleSpace, at, Point.Empty, Point.Empty, size, 0, true, stepSize, particleSize);
         }
 
-        long ms = DateTime.UtcNow.Ticks/1000;
+        long ms = DateTime.UtcNow.Ticks / 1000;
         Bitmap _flameImg;
         public void doRender()
         {
@@ -162,7 +162,7 @@ namespace TestParticle
                 foreach (var particle in parts)
                 {
                     //buffer.Graphics.FillEllipse(Brushes.Black, new Rectangle((int)particle.dimenisons[0].pos, (int)particle.dimenisons[1].pos, ((int)(particle.mass * 100)) / 10, ((int)(particle.mass * 100)) / 10));
-                      buffer.Graphics.DrawImage(_flameImg, new RectangleF(1000*(size.X - (particle.Rect.X))/size.X, 1000*(size.Y - (particle.Rect.Y))/size.Y, particle.Rect.Width * 10, particle.Rect.Height * 10));
+                    buffer.Graphics.DrawImage(_flameImg, new RectangleF(1000 * (size.X - (particle.Rect.X)) / size.X, 1000 * (size.Y - (particle.Rect.Y)) / size.Y, particle.Rect.Width * 10, particle.Rect.Height * 10));
                 }
 
                 var rectangles = particleSpace.GetRects();

@@ -3,42 +3,46 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using UnityEngine;
 
 namespace ParticleLib.Models
 {
-    //public class ParticleEmitter
-    //{
-    //    public PointF location { get; set; }
-    //    int defaultLifespan = 50;
+    public class ParticleEmitter
+    {
+        public Vector3 location { get; set; }
+        int defaultLifespan = 50;
 
-    //    public bool isEvap = false;
-    //    public bool isSeek = true;
+        public bool isEvap = false;
+        public bool isSeek = false;
 
-    //    public ParticleEntity EmitParticle(ref ParticleSpace2D<BaseEntity<ITimesteppableLocationEntity>> pspace, PointF relativePoint, PointF rotation, PointF velocity, Point BOUNDS, int split = 0, bool isChained = false, float stepSize = 10f, float particleSize = 1)
-    //    {
-    //        if (relativePoint.X > 0 && relativePoint.X < BOUNDS.X && relativePoint.Y > 0 && relativePoint.Y < BOUNDS.Y)
-    //        {
-    //            var spawnLoc = isChained ? relativePoint : location;
+        private static object particleLockObj = new object();
+        //private static List<BaseEntity<ITimesteppableLocationEntity>> particles = new List<BaseEntity<ITimesteppableLocationEntity>>();
 
-    //            var newParticle = new ParticleEntity();
-    //            newParticle.ParticleInit(stepSize, particleSize, spawnLoc.X, spawnLoc.Y, ThreadSafeRandom.Next_s() * defaultLifespan, rotation.X, rotation.Y, isEvap, isSeek, split, velocity.X, velocity.Y);
-    //            newParticle.AddForce(ThreadSafeRandom.Next_a(), 1f);
-    //            var be = new BaseEntity<ITimesteppableLocationEntity>(newParticle);
-    //            newParticle.parentRef = be;
-    //            pspace.AddParticle(be);
-    //            return newParticle;
-    //        }
-    //        return null;
-    //    }
+        //public static List<BaseEntity<ITimesteppableLocationEntity>> Particles { get { lock (particleLockObj) return new List<BaseEntity<ITimesteppableLocationEntity>>(particles); } }
 
-    //    public static void AccelToPoint(PointF fromLocation, PointF toLocation, ParticleEntity newParticle)
-    //    {
-    //        newParticle.AccelToPoint((fromLocation.X, fromLocation.Y), (toLocation.X, toLocation.Y));
-    //    }
+        public ParticleEntity EmitParticle(ref ParticleSpace3D pspace, Vector3 relativePoint, Vector3 rotation, Vector3 velocity, Bounds BOUNDS, int split = 0, bool isChained = false, float stepSize = 10f, float particleSize = 1, float emissionSpeed = 10)
+        {
+            if (relativePoint.x > BOUNDS.min.x && relativePoint.x < BOUNDS.max.x && relativePoint.y > BOUNDS.min.y && relativePoint.y < BOUNDS.max.y && relativePoint.z > BOUNDS.min.z && relativePoint.z < BOUNDS.max.z)
+            {
+                var newParticle = new ParticleEntity();
+                newParticle.ParticleInit(stepSize, particleSize, relativePoint.x, relativePoint.y, relativePoint.z, ThreadSafeRandom.Next_s() * defaultLifespan, rotation.x, rotation.y, rotation.z, isEvap, isSeek, split, velocity.x, velocity.y, velocity.z);
+                newParticle.AddForce(ThreadSafeRandom.Next_v3f(), emissionSpeed);
+                //var be = new BaseEntity<ITimesteppableLocationEntity>(newParticle);
+                //newParticle.parentRef = be;                pspace.AddParticle(newParticle);
+                pspace.Add(newParticle);
+                return newParticle;
+            }
+            return null;
+        }
 
-    //    public void SetLocation(float x, float y)
-    //    {
-    //        location = new PointF(x, y);
-    //    }
-    //}
+        public static void AccelToPoint(Vector3 fromLocation, Vector3 toLocation, ParticleEntity newParticle)
+        {
+            newParticle.AccelToPoint(fromLocation, toLocation);
+        }
+
+        public void SetLocation(float x, float y, float z)
+        {
+            location = new Vector3(x, y, z);
+        }
+    }
 }

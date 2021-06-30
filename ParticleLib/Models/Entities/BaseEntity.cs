@@ -3,14 +3,19 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using UnityEngine;
 
 namespace ParticleLib.Models.Entities
 {
-    //public class BaseEntity<T> : IRectQuadStorable where T : ITimesteppableLocationEntity
+    //public class BaseEntity : ITimesteppableLocationEntity
+    //    //: IRectQuadStorable where T : ITimesteppableLocationEntity
+        
     //{
-    //    public RectangleF Rect => Entity.Rect;
     //    public T Entity { get; }
     //    public string EntityName => nameof(T);
+
+    //    public Vector3 Location => Entity.Location;
+
     //    public BaseEntity(T entity)
     //    {
     //        Entity = entity;

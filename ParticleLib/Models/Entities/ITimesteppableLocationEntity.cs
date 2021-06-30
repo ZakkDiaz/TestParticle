@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ParticleLib.Models.Entities
 {
-    //public interface ITimesteppableLocationEntity : ITimesteppableEntity, IRectQuadStorable
-    //{
-    //}
+    public interface ITimesteppableLocationEntity : ITimesteppableEntity
+    {
+    }
 }

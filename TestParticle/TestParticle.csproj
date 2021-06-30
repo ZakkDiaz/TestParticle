@@ -11,6 +11,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\ParticleLib\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Assets\Images\spark.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
