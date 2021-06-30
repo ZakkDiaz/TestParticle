@@ -1,10 +1,12 @@
-﻿using System;
+﻿using ParticleLib.Models.Entities;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace ParticleLib.Models._3D
 {
@@ -15,7 +17,7 @@ namespace ParticleLib.Models._3D
         Thread _taskThread;
         public OctreeNode OctreeNode { get; set; }
         private ConcurrentDictionary<ulong, NodeCollection> _octreeHeap = new ConcurrentDictionary<ulong, NodeCollection>();
-        private ConcurrentDictionary<IntPtr, NodeTypeLocation3D> _objRefs = new ConcurrentDictionary<IntPtr, NodeTypeLocation3D>();
+        private ConcurrentDictionary<IntPtr, ParticleEntity> _objRefs = new ConcurrentDictionary<IntPtr, ParticleEntity>();
         private ConcurrentDictionary<IntPtr, NodeTypeLayer3D> _locationRefs = new ConcurrentDictionary<IntPtr, NodeTypeLayer3D>();
 
         public List<NodeCollection> GetCollections()
@@ -23,14 +25,19 @@ namespace ParticleLib.Models._3D
             return _octreeHeap.Select(h => h.Value).ToList();
         }
 
-        public void ProcessParticles(IParticleProcessor particleProcessor)
+        //public void ProcessParticles(IParticleProcessor particleProcessor)
+        //{
+        //    particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);
+        //}
+
+        public ParticleEntity[] GetNearby(Vector3 location, float distance)
         {
-            particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);
+
         }
 
-        public Point3D[] GetPointCloud()
+        public ParticleEntity[] GetPointCloud()
         {
-            return _objRefs.Select(s => s.Value.Location).ToArray();
+            return _objRefs.Values.ToArray();
         }
 
         public bool AnyToAdd()
@@ -329,23 +336,36 @@ namespace ParticleLib.Models._3D
             lock (taskLock)
                 taskQueue.Add(new Task(() => { Add(x, y, z); }));
         }
-        private void Add(float x, float y, float z)
+
+        public void Add(ParticleEntity particle)
         {
-            var location = new NodeTypeLocation3D(x, y, z, false);
-            var ptr = (IntPtr)GCHandle.Alloc(location);
-
-            _objRefs.TryAdd(ptr, location);
-
-            Add(OctreeNode, location);
+            lock (taskLock)
+                taskQueue.Add(new Task(() => {
+                    var ptr = (IntPtr)GCHandle.Alloc(particle);
+                    _objRefs.TryAdd(ptr, particle);
+                    Add(OctreeNode, particle);
+                }));
         }
 
-        private void AddAsyncRec(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
+        private void Add(float x, float y, float z)
+        {
+            var location = new UnityEngine.Vector3(x, y, z);
+            var particle = new ParticleEntity();
+            particle.Location = location;
+            var ptr = (IntPtr)GCHandle.Alloc(particle);
+
+            _objRefs.TryAdd(ptr, particle);
+
+            Add(OctreeNode, particle);
+        }
+
+        private void AddAsyncRec(OctreeNode parentNode, ParticleEntity pointLocation, int depth = 4)
         {
             lock (taskLock)
                 taskQueue.Add(new Task(() => { Add(parentNode, pointLocation, depth); }));
         }
 
-        unsafe private void Add(OctreeNode parentNode, NodeTypeLocation3D pointLocation, int depth = 4)
+        unsafe private void Add(OctreeNode parentNode, ParticleEntity pointLocation, int depth = 4)
         {
             if (pointLocation == null)
                 return;
@@ -359,9 +379,9 @@ namespace ParticleLib.Models._3D
             //var scale = Math.Pow(2, depth / 4);
             var half = (_compareTo.To - _compareTo.From)/2;
             var center = _compareTo.From + half;
-            var x = pointLocation.Location.X > Math.Abs(center.X);
-            var y = pointLocation.Location.Y > Math.Abs(center.Y);
-            var z = pointLocation.Location.Z > Math.Abs(center.Z);
+            var x = pointLocation.Location.x > Math.Abs(center.X);
+            var y = pointLocation.Location.y > Math.Abs(center.Y);
+            var z = pointLocation.Location.z > Math.Abs(center.Z);
 
             ulong quad =
                 (ulong)(

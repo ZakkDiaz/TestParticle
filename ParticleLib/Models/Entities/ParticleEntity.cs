@@ -162,7 +162,7 @@ namespace ParticleLib.Models.Entities
                 DoParticleInteraction(entity, entity2, toRemove, toAdd, diff);
             }
             
-    //    }
+        }
 
         private static void DoParticleInteraction(ParticleEntity entity, ParticleEntity p2, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {

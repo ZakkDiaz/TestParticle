@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ParticleLib.Models.Entities;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -66,14 +67,14 @@ namespace ParticleLib.Models._3D
         public ForceContainer ForceContainer;
         public NodeTypeLayer3D(Point3D from, Point3D to) : base(from, to)
         { 
-            ChildLocationItems = new List<NodeTypeLocation3D>();
+            ChildLocationItems = new List<ParticleEntity>();
             ForceContainer = new ForceContainer();
         }
         private static int _maxSize = 10;
         private bool isoverflow = false;
         public static NodeType Identity { get; set; } = NodeType.Location;
-        public List<NodeTypeLocation3D> ChildLocationItems { get; set; }
-        public void Add(NodeTypeLocation3D item)
+        public List<ParticleEntity> ChildLocationItems { get; set; }
+        public void Add(ParticleEntity item)
         {
             ChildLocationItems.Add(item);
         }
@@ -85,17 +86,8 @@ namespace ParticleLib.Models._3D
 
         internal void ClearChildren()
         {
-            ChildLocationItems = new List<NodeTypeLocation3D>();
+            ChildLocationItems = new List<ParticleEntity>();
             isoverflow = true;
-        }
-    }
-
-    public class NodeTypeLocation3D
-    {
-        public Point3D Location;
-        public NodeTypeLocation3D(float x, float y, float z, bool isLayer)
-        {
-            Location = new Point3D(x, y, z);
         }
     }
 

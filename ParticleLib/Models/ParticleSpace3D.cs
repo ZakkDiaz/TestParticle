@@ -1,4 +1,5 @@
-﻿using ParticleLib.Models.Entities;
+﻿using ParticleLib.Models._3D;
+using ParticleLib.Models.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +12,7 @@ namespace ParticleLib.Models
         private UnityEngine.Vector3 from;
         private UnityEngine.Vector3 to;
         private object particleLock = new object();
-        private PointOctree<ParticleEntity> particles;
+        private Octree particles;
         //QuadTreeRect<T> particles;
 
         public ParticleSpace3D(Vector3 _from, Vector3 _to)
@@ -20,27 +21,29 @@ namespace ParticleLib.Models
             to = _to;
             var diff = (to - from);
             var center = (to + from) / 2;
-            particles = new PointOctree<ParticleEntity>(15, Vector3.zero, .001f);
+            particles = new Octree(new Point3D(), new Point3D(diff.x, diff.y, diff.z));
+
+            //particles = new Octree(15, Vector3.zero, .001f);
             //particles = new QuadTreeRect<T>(from.X, from.Y, to.X - from.X, to.Y - from.Y);
         }
 
-        public void DrawAll()
-        {
-            lock (particleLock)
-            {
-                particles.DrawAllBounds(); // Draw node boundaries
-            }
-        }
+        //public void DrawAll()
+        //{
+        //    lock (particleLock)
+        //    {
+        //        particles.DrawBounds(); // Draw node boundaries
+        //    }
+        //}
 
         public List<ParticleEntity> GetParticles() {
             lock (particleLock)
-                return particles.GetAll().ToList(); 
+                return particles.GetPointCloud().ToList(); 
         }
 
         public void AddParticle(ParticleEntity particle)
         {
             lock (particleLock)
-                particles.Add(particle, particle.Location);
+                particles.Add(particle);
         }
 
         //public List<T> GetParticles()

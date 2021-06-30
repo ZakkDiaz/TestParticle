@@ -25,12 +25,12 @@ namespace ParticleLib.Models
             ProcessEntityStates(space, BOUNDS, particles, toRemove, toAdd, diff);
 
 
-    //        foreach (var p in toRemove)
-    //            space.Remove(p);
+            foreach (var p in toRemove)
+                space.Remove(p);
 
-    //        foreach (var p in toAdd)
-    //            space.Add(p);
-    //    }
+            foreach (var p in toAdd)
+                space.Add(p);
+        }
 
         private static void ProcessEntityStates(this ParticleSpace3D space, Vector3 BOUNDS, List<ParticleEntity> pList, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {
@@ -44,11 +44,11 @@ namespace ParticleLib.Models
             }
 
 
-    //        foreach (var p in pList)
-    //        {
-    //            space.Move(p);
-    //        }
-    //    }
+            foreach (var p in pList)
+            {
+                space.Move(p);
+            }
+        }
 
         private static void ProcessEntity(ParticleEntity p, float diff, Vector2 focus, Vector3 BOUNDS) => p.ProcessTimestep(diff, focus, BOUNDS);
     }
