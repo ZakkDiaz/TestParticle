@@ -53,13 +53,14 @@ namespace Ocdisplay
         private int physicsCount = 0;
         private void Physics_DoWork(object sender, DoWorkEventArgs e)
         {
-            while(true)
+            while (true)
             {
                 physicsCount++;
                 if (physicsCount == physicsInterval)
                 {
                     var collections = _octree.GetCollections();
-                    Parallel.ForEach(collections, (collection) => {
+                    Parallel.ForEach(collections, (collection) =>
+                    {
                         collection.SumPhysics();
                     });
                 }
