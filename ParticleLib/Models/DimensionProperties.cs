@@ -46,10 +46,11 @@ namespace ParticleLib.Models
     }
     public static class DimensionPropertyExtensions
     {
-        public static void ProcessTimestep(this DimensionProperty entity, float stepSize, float mass, Vector3 BOUNDS)
+        public static DimensionProperty ProcessTimestep(DimensionProperty entity, float stepSize, float mass, Vector3 BOUNDS)
         {
             entity.ProcessRotation(stepSize, mass);
-            entity.ProcessPosition(stepSize, mass, BOUNDS);
+            entity = entity.ProcessPosition(stepSize, mass, BOUNDS);
+            return entity;
         }
 
         private static void ProcessRotation(this DimensionProperty entity, float stepSize, float mass)
@@ -64,7 +65,7 @@ namespace ParticleLib.Models
             //}
         }
 
-        private static void ProcessPosition(this DimensionProperty entity, float stepSize, float mass, Vector2 BOUNDS)
+        private static DimensionProperty ProcessPosition(this DimensionProperty entity, float stepSize, float mass, Vector2 BOUNDS)
         {
             //if (entity.vel == float.NaN)
             //    entity.vel = 0;
@@ -87,6 +88,8 @@ namespace ParticleLib.Models
             //{
             //    entity.pos = BOUNDS.y;
             //}
+
+            return entity;
         }
 
         internal static void AddRot(this DimensionProperty entity, float y)

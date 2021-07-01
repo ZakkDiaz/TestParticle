@@ -1,4 +1,5 @@
-﻿using ParticleLib.Models._3D;
+﻿using ParticleLib.Models;
+using ParticleLib.Models._3D;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using UnityEngine;
 
 namespace Ocdisplay
 {
@@ -17,10 +19,11 @@ namespace Ocdisplay
         Bitmap _background;
         bool _outdatedImage = false;
         Bitmap _next;
-        Random r = new Random();
         Font font = new Font("Arial", 20);
         bool _init = false;
-        Octree _octree;
+        ParticleSpace3D _octree;
+        ParticleEmitter particleEmitter = new ParticleEmitter();
+
         int depth = 1000;
         bool _mouseDown = false;
         BackgroundWorker adder;
@@ -53,16 +56,19 @@ namespace Ocdisplay
         private int physicsCount = 0;
         private void Physics_DoWork(object sender, DoWorkEventArgs e)
         {
+            physicsCount = 0;
             while (true)
             {
                 physicsCount++;
                 if (physicsCount == physicsInterval)
                 {
-                    var collections = _octree.GetCollections();
-                    Parallel.ForEach(collections, (collection) =>
-                    {
-                        collection.SumPhysics();
-                    });
+                    _octree.ProcessTimestep(1, Vector3.zero, Vector3.zero);
+                    //var collections = _octree.GetCollections();
+                    //Parallel.ForEach(collections, (collection) =>
+                    //{
+                    //    collection.SumPhysics();
+                    //});
+                    physicsCount = 0;
                 }
             }
         }
@@ -70,12 +76,16 @@ namespace Ocdisplay
         bool doDraw = false;
         private void Drawer_DoWork(object sender, DoWorkEventArgs e)
         {
-            while (true)
+            while (!_init)
             {
-                if (doDraw)
+                System.Threading.Thread.Sleep(10);
+            }
+            while(true)
+            {
+                System.Threading.Thread.Sleep(10);
+                //if (doDraw)
                 {
                     Draw();
-                    System.Threading.Thread.Sleep(10);
                     doDraw = false;
                 }
             }
@@ -93,15 +103,13 @@ namespace Ocdisplay
 
         private void Form1_MouseClick(object sender, MouseEventArgs e)
         {
-            var point = new Point3D(e.X, e.Y, 250);
-            _octree.AddAsync(point.X, point.Y, point.Z);
-            var otSize = _octree.Size();
-            var otDepth = _octree.Depth();
+            var location = new Vector3(e.X, e.Y, 250);
+            particleEmitter.EmitParticle(ref _octree, location, Vector3.zero, Vector3.zero, new UnityEngine.Bounds());
+
 
             Bitmap bmp = new Bitmap(this.Width, this.Height);
-            using var g = Graphics.FromImage(bmp);
+            using var g = System.Drawing.Graphics.FromImage(bmp);
             //_octree.Draw(g);
-            g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
             _next = bmp;
             _outdatedImage = true;
             this.Invalidate();
@@ -147,7 +155,14 @@ namespace Ocdisplay
         private int radius = 25;
         private unsafe void Adder_DoWork(object sender, DoWorkEventArgs e)
         {
-            while(true)
+            if (!_init)
+            {
+                Init();
+            }
+
+            var otSize = _octree.to - _octree.from;
+            var otCenter = _octree.from + otSize / 2;
+            while (true)
             {
                 renderCount++;
                 if (renderCount == renderInterval)
@@ -155,23 +170,20 @@ namespace Ocdisplay
                     if (_mouseDown)
                         try
                         {
-                            if (!_init)
-                            {
-                                Init();
-                            }
 
-
+                            var cusrorPos = System.Windows.Forms.Cursor.Position;
                             //System.Threading.Thread.Sleep(1);
                             //System.Threading.Thread.Sleep(10);
                             for (var i = 0; i < 1; i++)
                             {
-                                var cX = Cursor.Position.X + (float)(r.NextDouble() * 2 * radius) - radius;
-                                var cY = Cursor.Position.Y + (float)(r.NextDouble() * 2 * radius) - radius;
+                                var cX = cusrorPos.X + (float)(ThreadSafeRandom.Next_s() * 2 * radius) - radius;
+                                var cY = cusrorPos.Y + (float)(ThreadSafeRandom.Next_s() * 2 * radius) - radius;
                                 //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
                                 //var locationToAdd = new NodeTypeLocation3D(cX, cY, 500, false);
 
                                 //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
-                                _octree.AddAsync(cX, cY, 500);
+                                var location = new Vector3(cX, cY, 500);
+                                particleEmitter.EmitParticle(ref _octree, location, Vector3.zero, Vector3.zero, new UnityEngine.Bounds(otCenter, otSize));
                             }
                             //Draw();
                             doDraw = true;
@@ -204,11 +216,11 @@ namespace Ocdisplay
         private void Init()
         {
             _background = new Bitmap(this.Width, this.Height);
-            using var gfx = Graphics.FromImage(_background);
-            gfx.Clear(Color.White);
+            using var gfx = System.Drawing.Graphics.FromImage(_background);
+            gfx.Clear(System.Drawing.Color.White);
             this.BackgroundImage = _background;
             _next = new Bitmap(_background);
-            _octree = new Octree(new Point3D(), new Point3D(this.Width, this.Height, depth));
+            _octree = new ParticleSpace3D(new Vector3(0, 0, 0), new Vector3(this.Width, this.Height, depth));
             _init = true;
         }
 
@@ -233,23 +245,23 @@ namespace Ocdisplay
 
         private void Draw()
         {
-            var otSize = _octree.Size();
-            var otDepth = _octree.Depth();
+            //var otSize = _octree.Size();
+            //var otDepth = _octree.Depth();
 
             Bitmap bmp = new Bitmap(this.Width, this.Height);
-            using var g = Graphics.FromImage(bmp);
+            using var g = System.Drawing.Graphics.FromImage(bmp);
             //_octree.Draw(g);
-            g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
-            foreach (var itm in _octree.GetPointCloud())
+            //g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
+            foreach (var itm in _octree.GetParticles())
             {
-                g.FillEllipse(Brushes.Black, new Rectangle((int)itm.X, (int)itm.Y, 10, 10));
-                Application.DoEvents();
+                g.FillEllipse(Brushes.Black, new Rectangle((int)itm.Location.x, (int)itm.Location.y, 10, 10));
+                //System.Windows.Forms.Application.DoEvents();
             }
-            foreach (var bound in _octree.GetBoxCloud())
-            {
-                g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
-                Application.DoEvents();
-            }
+            //foreach (var bound in _octree.GetBoxCloud())
+            //{
+            //    g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
+            //    Application.DoEvents();
+            //}
             _next = bmp;
             _outdatedImagedReceived = true;
             this.Invalidate();

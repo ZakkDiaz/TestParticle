@@ -19,7 +19,7 @@ namespace ParticleLib.Models.Entities
         public List<DimensionProperty> dimenisons;
         //not to be confused with "quantum"
         public List<Tuple<DimensionProperty, DimensionProperty, DimensionProperty>> dimenisonsEntanglements;
-        public float mass { get; internal set; }
+        public float mass { get; set; }
         public float radius { get; internal set; }
         public bool isSticky { get; internal set; }
         public bool isExploding { get; internal set; }
@@ -42,9 +42,11 @@ namespace ParticleLib.Models.Entities
     {
         public static void ProcessTimestep(this ParticleEntity entity, float diff, Vector2 focus, Vector3 BOUNDS)
         {
-            foreach (var p in entity.dimenisons)
+            for(var i = 0; i < entity.dimenisons.Count; i++)
             {
-                p.ProcessTimestep(entity._deltaStep * diff, entity.mass, BOUNDS);
+                var dim = entity.dimenisons[i];
+                dim = DimensionPropertyExtensions.ProcessTimestep(dim, entity._deltaStep * diff, entity.mass, BOUNDS);
+                entity.dimenisons[i] = dim;
             }
             entity.duration -= entity._deltaStep * diff;
 
@@ -68,9 +70,16 @@ namespace ParticleLib.Models.Entities
             //var x = Math.Cos(angle);
             //var y = Math.Sin(angle);
             var _breaks = 5f / amt;
-            entity.dimenisons[0].AddAccel((float)angleX.x / _breaks);
-            entity.dimenisons[1].AddAccel((float)angleY.y / _breaks);
-            entity.dimenisons[2].AddAccel((float)angleZ.z / _breaks);
+
+            var refx = entity.dimenisons[0];
+            refx.AddAccel((float)angleX.x / _breaks);
+            entity.dimenisons[0] = refx;
+            var refy = entity.dimenisons[1];
+            refy.AddAccel((float)angleY.y / _breaks);
+            entity.dimenisons[1] = refx;
+            var refz = entity.dimenisons[2];
+            refz.AddAccel((float)angleZ.z / _breaks);
+            entity.dimenisons[2] = refz;
         }
 
     //    public static void AddAccel(this ParticleEntity entity, int dimension, float acc)
@@ -87,9 +96,17 @@ namespace ParticleLib.Models.Entities
 
         internal static void AddForce(this ParticleEntity entity, Vector3 angle, float forceMult)
         {
-            entity.dimenisons[0].AddVel((float)(angle.x * forceMult / entity.mass));
-            entity.dimenisons[1].AddVel((float)(angle.y * forceMult / entity.mass));
-            entity.dimenisons[2].AddVel((float)(angle.z * forceMult / entity.mass));
+            var xref = entity.dimenisons[0];
+            xref.AddVel((float)(angle.x * forceMult / entity.mass));
+            entity.dimenisons[0] = xref;
+
+            var yref = entity.dimenisons[1];
+            yref.AddVel((float)(angle.y * forceMult / entity.mass));
+            entity.dimenisons[1] = yref;
+
+            var zref = entity.dimenisons[2];
+            zref.AddVel((float)(angle.z * forceMult / entity.mass));
+            entity.dimenisons[2] = zref;
         }
 
         internal static bool Intersects(this ParticleEntity entity, ParticleEntity p2)
@@ -99,24 +116,24 @@ namespace ParticleLib.Models.Entities
             return (dist < Math.Sqrt(entity.mass) || dist < Math.Sqrt(entity.mass));
         }
 
-        internal static void SetSpeed(this ParticleEntity entity, Vector3 vel)
-        {
-            entity.dimenisons[0].SetVel(vel.x);
-            entity.dimenisons[1].SetVel(vel.y);
-            entity.dimenisons[2].SetVel(vel.z);
-        }
+        //internal static void SetSpeed(this ParticleEntity entity, Vector3 vel)
+        //{
+        //    entity.dimenisons[0].SetVel(vel.x);
+        //    entity.dimenisons[1].SetVel(vel.y);
+        //    entity.dimenisons[2].SetVel(vel.z);
+        //}
 
         internal static Vector3 vel(this ParticleEntity entity)
         {
             return new Vector3(entity.dimenisons[0].vel, entity.dimenisons[1].vel, entity.dimenisons[2].vel);
         }
 
-        internal static void AddSpeed(this ParticleEntity entity, Vector3 vel)
-        {
-            entity.dimenisons[0].AddVel(vel.x);
-            entity.dimenisons[1].AddVel(vel.y);
-            entity.dimenisons[2].AddVel(vel.z);
-        }
+        //internal static void AddSpeed(this ParticleEntity entity, Vector3 vel)
+        //{
+        //    entity.dimenisons[0].AddVel(vel.x);
+        //    entity.dimenisons[1].AddVel(vel.y);
+        //    entity.dimenisons[2].AddVel(vel.z);
+        //}
 
         public static void ParticleInit(this ParticleEntity entity, float dStep, float _mass, float posX = 0, float posY = 0, float posZ = 0, float _duration = 1000, float rotX = 0, float rotY = 0, float rotZ = 0, bool isEvap = false, bool isSeek = false, int _splitCount = 0, float velX = 0, float velY = 0, float velZ = 0, bool _isAsorb = false)
         {

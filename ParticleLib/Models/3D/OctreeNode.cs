@@ -18,9 +18,9 @@ namespace ParticleLib.Models._3D
 
         //The forces either represent forces coming into the system, or being accumulated from contained components
         //public bool IsInboundTransfer { get; set; }
-        public DimensionProperty ForceX { get; set; }
-        public DimensionProperty ForceY { get; set; }
-        public DimensionProperty ForceZ { get; set; }
+        //public DimensionProperty ForceX { get; set; }
+        //public DimensionProperty ForceY { get; set; }
+        //public DimensionProperty ForceZ { get; set; }
 
         public void SumPhysics()
         {
@@ -36,12 +36,11 @@ namespace ParticleLib.Models._3D
             NodeType = nodeType;
             ObjPtr = objPtr;
             Quadrant = quadrant;
-            ForceX = new DimensionProperty(0);
-            ForceY = new DimensionProperty(1);
-            ForceZ = new DimensionProperty(2);
+            //ForceX = new DimensionProperty(0);
+            //ForceY = new DimensionProperty(1);
+            //ForceZ = new DimensionProperty(2);
         }
-    };
-
+    }
     [Flags]
     public enum NodeType
     {

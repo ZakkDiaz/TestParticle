@@ -25,15 +25,71 @@ namespace ParticleLib.Models._3D
             return _octreeHeap.Select(h => h.Value).ToList();
         }
 
+        public void Remove(ParticleEntity entity)
+        {
+            lock (taskLock)
+                taskQueue.Add(new Task(() => { RemoveTask(entity); }));
+        }
+
+        public void Move(ParticleEntity entity)
+        {
+            lock (taskLock)
+                taskQueue.Add(new Task(() => { MoveTask(entity); }));
+        }
+        private void MoveTask(ParticleEntity entity)
+        {
+            RemoveEntity(entity, OctreeNode);
+            Add(OctreeNode, entity);
+        }
+
+        private void RemoveTask(ParticleEntity entity)
+        {
+            var ptr = (IntPtr)GCHandle.Alloc(entity);
+            _objRefs.TryRemove(ptr, out ParticleEntity _pe);
+
+            RemoveEntity(entity, OctreeNode);
+
+        }
+
+        private bool RemoveEntity(ParticleEntity entity, OctreeNode octreeNode)
+        {
+            _locationRefs.TryGetValue(octreeNode.ObjPtr, out NodeTypeLayer3D layer);
+            if(layer.ChildLocationItems.Contains(entity))
+            {
+                layer.ChildLocationItems.Remove(entity);
+                return true;
+            }
+            _octreeHeap.TryGetValue(octreeNode.LocCode, out NodeCollection nodeCollection);
+
+            bool removed = false;
+            if (nodeCollection._000.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._000.Value);
+            if (!removed && nodeCollection._001.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._001.Value);
+            if (!removed && nodeCollection._010.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._010.Value);
+            if (!removed && nodeCollection._011.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._011.Value);
+            if (!removed && nodeCollection._100.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._100.Value);
+            if (!removed && nodeCollection._101.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._101.Value);
+            if (!removed && nodeCollection._110.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._110.Value);
+            if (!removed && nodeCollection._111.HasValue)
+                removed = RemoveEntity(entity, nodeCollection._111.Value);
+            return removed;
+        }
+
         //public void ProcessParticles(IParticleProcessor particleProcessor)
         //{
         //    particleProcessor.Process(OctreeNode, ref _locationRefs, ref _octreeHeap);
         //}
 
-        public ParticleEntity[] GetNearby(Vector3 location, float distance)
-        {
+        //public ParticleEntity[] GetNearby(Vector3 location, float distance)
+        //{
 
-        }
+        //}
 
         public ParticleEntity[] GetPointCloud()
         {

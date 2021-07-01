@@ -9,8 +9,8 @@ namespace ParticleLib.Models
 {
     public partial class ParticleSpace3D
     {
-        private UnityEngine.Vector3 from;
-        private UnityEngine.Vector3 to;
+        public UnityEngine.Vector3 from;
+        public UnityEngine.Vector3 to;
         private object particleLock = new object();
         private Octree particles;
         //QuadTreeRect<T> particles;
@@ -36,7 +36,6 @@ namespace ParticleLib.Models
         //}
 
         public List<ParticleEntity> GetParticles() {
-            lock (particleLock)
                 return particles.GetPointCloud().ToList(); 
         }
 
@@ -61,7 +60,7 @@ namespace ParticleLib.Models
 
             lock (particleLock)
             {
-                p.Invoke(particles.GetNearby(location, 100).ToList());
+                p.Invoke(particles.GetPointCloud().ToList());
             }
         }
 
@@ -74,14 +73,13 @@ namespace ParticleLib.Models
         internal void Add(ParticleEntity p)
         {
             lock (particleLock)
-                particles.Add(p, p.Location);
+                particles.Add(p);
         }
 
         internal void Move(ParticleEntity p)
         {
             lock (particleLock) {  
-                particles.Remove(p);
-                particles.Add(p, p.Location);
+                particles.Move(p);
             }
         }
     }
