@@ -58,7 +58,8 @@ namespace ParticleLib.Models
 
             lock (particleLock)
             {
-                p.Invoke(particles.GetNearby(location, 100).ToList());
+                //p.Invoke(particles.GetNearby(location, 250).ToList());
+                p.Invoke(particles.GetAll().ToList());
             }
         }
 

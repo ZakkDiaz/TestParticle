@@ -170,7 +170,7 @@ namespace ParticleLib.Models.Entities
             if (entity != null && p2 != null)
                 if (entity != p2)
                 {
-                    var g = 9.8f;
+                    var g = 1f;
                     var posDiff = p2.Location - entity.Location;// entity.AngleFor(p2.Location);
                     var dist = entity.DistanceFrom(p2);
                     //if(dist == float.NaN)
