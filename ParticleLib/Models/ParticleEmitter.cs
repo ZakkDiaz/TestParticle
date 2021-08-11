@@ -20,12 +20,12 @@ namespace ParticleLib.Models
 
         //public static List<BaseEntity<ITimesteppableLocationEntity>> Particles { get { lock (particleLockObj) return new List<BaseEntity<ITimesteppableLocationEntity>>(particles); } }
 
-        public ParticleEntity EmitParticle(ref ParticleSpace3D pspace, Vector3 relativePoint, Vector3 rotation, Vector3 velocity, Bounds BOUNDS, int split = 0, bool isChained = false, float stepSize = 10f, float particleSize = 1, float emissionSpeed = 0)
+        public ParticleEntity EmitParticle(ref ParticleSpace3D pspace, Vector3 relativePoint, Vector3 rotation, Vector3 velocity, Bounds BOUNDS, int split = 0, bool isChained = false, float stepSize = 10f, float particleSize = 1, float emissionSpeed = 0, float density = 1)
         {
             //if (relativePoint.x > BOUNDS.min.x && relativePoint.x < BOUNDS.max.x && relativePoint.y > BOUNDS.min.y && relativePoint.y < BOUNDS.max.y && relativePoint.z > BOUNDS.min.z && relativePoint.z < BOUNDS.max.z)
             {
                 var newParticle = new ParticleEntity();
-                newParticle.ParticleInit(stepSize, particleSize, relativePoint.x, relativePoint.y, relativePoint.z, ThreadSafeRandom.Next_s() * defaultLifespan, rotation.x, rotation.y, rotation.z, isEvap, isSeek, split, velocity.x, velocity.y, velocity.z);
+                newParticle.ParticleInit(stepSize, particleSize, relativePoint.x, relativePoint.y, relativePoint.z, ThreadSafeRandom.Next_s() * defaultLifespan, rotation.x, rotation.y, rotation.z, isEvap, isSeek, split, velocity.x, velocity.y, velocity.z, density: density);
                 newParticle.AddForce(ThreadSafeRandom.Next_v3f(), emissionSpeed);
                 //var be = new BaseEntity<ITimesteppableLocationEntity>(newParticle);
                 //newParticle.parentRef = be;                pspace.AddParticle(newParticle);

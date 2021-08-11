@@ -52,7 +52,7 @@ namespace Ocdisplay
             //Application.Idle += HandleApplicationIdle;
         }
 
-        private int physicsInterval = 10000000;
+        private int physicsInterval = 100000;
         private int physicsCount = 0;
         private void Physics_DoWork(object sender, DoWorkEventArgs e)
         {
@@ -60,9 +60,9 @@ namespace Ocdisplay
             while (true)
             {
                 physicsCount++;
-                if (physicsCount == physicsInterval)
+                if (physicsCount >= physicsInterval && _octree != null)
                 {
-                    _octree.ProcessTimestep(1, Vector3.zero, Vector3.zero);
+                    _octree.ProcessTimestep(.1f, Vector3.zero, Vector3.zero);
                     //var collections = _octree.GetCollections();
                     //Parallel.ForEach(collections, (collection) =>
                     //{
@@ -183,7 +183,7 @@ namespace Ocdisplay
 
                                 //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
                                 var location = new Vector3(cX, cY, 500);
-                                particleEmitter.EmitParticle(ref _octree, location, Vector3.zero, Vector3.zero, new UnityEngine.Bounds(otCenter, otSize));
+                                particleEmitter.EmitParticle(ref _octree, location, Vector3.zero, Vector3.zero, new UnityEngine.Bounds(otCenter, otSize), density: 5.51f);
                             }
                             //Draw();
                             doDraw = true;

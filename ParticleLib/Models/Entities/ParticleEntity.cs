@@ -19,6 +19,7 @@ namespace ParticleLib.Models.Entities
         public List<DimensionProperty> dimenisons;
         //not to be confused with "quantum"
         public List<Tuple<DimensionProperty, DimensionProperty, DimensionProperty>> dimenisonsEntanglements;
+        public float density { get; set; }
         public float mass { get; set; }
         public float radius { get; internal set; }
         public bool isSticky { get; internal set; }
@@ -58,8 +59,8 @@ namespace ParticleLib.Models.Entities
             if (entity.isEvaporating)
                 entity.mass -= (entity._deltaStep * diff) / 10;
 
-
-            entity.UpdateLocation();
+            var epos = entity.pos();
+            entity.Location = epos;
         }
 
         public static void AccelToPoint(this ParticleEntity entity, Vector3 fromLocation, Vector3 toLocation, float amt = 1)
@@ -135,11 +136,12 @@ namespace ParticleLib.Models.Entities
         //    entity.dimenisons[2].AddVel(vel.z);
         //}
 
-        public static void ParticleInit(this ParticleEntity entity, float dStep, float _mass, float posX = 0, float posY = 0, float posZ = 0, float _duration = 1000, float rotX = 0, float rotY = 0, float rotZ = 0, bool isEvap = false, bool isSeek = false, int _splitCount = 0, float velX = 0, float velY = 0, float velZ = 0, bool _isAsorb = false)
+        public static void ParticleInit(this ParticleEntity entity, float dStep, float _mass, float posX = 0, float posY = 0, float posZ = 0, float _duration = 1000, float rotX = 0, float rotY = 0, float rotZ = 0, bool isEvap = false, bool isSeek = false, int _splitCount = 0, float velX = 0, float velY = 0, float velZ = 0, bool _isAsorb = false, float density = 1)
         {
             entity._deltaStep = dStep;
             entity.mass = _mass;
             entity.radius = 0;
+            entity.density = density;
             entity.isSticky = false;
             entity.isExploding = false;
             entity.isGhosting = false;
@@ -163,7 +165,9 @@ namespace ParticleLib.Models.Entities
             entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty, DimensionProperty>(x, y, z));
             //entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty>(y, z));
             //entity.dimenisonsEntanglements.Add(new Tuple<DimensionProperty, DimensionProperty>(x, z));
-            entity.UpdateLocation();
+
+            var epos = entity.pos();
+            entity.Location = epos;
         }
         public static Vector3 AngleFor(this ParticleEntity entity, Vector3 relativePoint)
         {
@@ -187,7 +191,7 @@ namespace ParticleLib.Models.Entities
             if (entity != null && p2 != null)
                 if (entity != p2)
                 {
-                    var g = 9.8f;
+                    var g = 1f;
                     var posDiff = p2.Location - entity.Location;// entity.AngleFor(p2.Location);
                     var dist = entity.DistanceFrom(p2);
                     //if(dist == float.NaN)
@@ -261,12 +265,6 @@ namespace ParticleLib.Models.Entities
                     //    p2.AddForce(angleRads, (forceMult * diff * p2._deltaStep));
                     //}
                 }
-        }
-
-        private static void UpdateLocation(this ParticleEntity entity)
-        {
-            var epos = entity.pos();
-            entity.Location = epos;
         }
     }
 }
