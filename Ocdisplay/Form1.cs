@@ -1,34 +1,53 @@
 ﻿using ParticleLib.Models;
 using ParticleLib.Models._3D;
+using ParticleLib.Models.Entities;
+using System.Numerics;
+using SharpDX.Direct3D;
+using SharpDX.Direct3D11;
+using SharpDX.DXGI;
+using SharpDX.Mathematics.Interop;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
+using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
+using System.Timers;
 using System.Windows.Forms;
-using UnityEngine;
+using Point = SharpDX.Point;
+using Vector3 = SharpDX.Vector3;
+using SharpDX.D3DCompiler;
+using System.Linq;
+using Buffer = SharpDX.Direct3D11.Buffer;
 
 namespace Ocdisplay
 {
     public partial class Form1 : Form
     {
-        Bitmap _background;
-        bool _outdatedImage = false;
-        Bitmap _next;
-        Font font = new Font("Arial", 20);
+        private SharpDX.Direct3D11.Device device;
+        private SwapChain swapChain;
+        private RenderTargetView renderTargetView;
+        private System.Windows.Forms.Timer renderTimer;
+
         bool _init = false;
         ParticleSpace3D _octree;
         ParticleEmitter particleEmitter = new ParticleEmitter();
 
-        int depth = 1000;
+        int depth = 10;
+        int width = 10;
+        int height = 10;
         bool _mouseDown = false;
+        bool _mouseUp = false;
         BackgroundWorker adder;
-        BackgroundWorker drawer;
         BackgroundWorker physics;
+
+        private SharpDX.Direct3D11.Buffer vertexBuffer;
+        private Buffer indexBuffer;
+        private VertexShader vertexShader;
+        private PixelShader pixelShader;
+        private InputLayout inputLayout;
+
+        private AAABBB Bounds;
         public Form1()
         {
             InitializeComponent();
@@ -36,83 +55,53 @@ namespace Ocdisplay
             this.DoubleBuffered = true;
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
-            this.Paint += Form1_Paint;
             this.MouseDown += Form1_MouseDown;
             this.MouseUp += Form1_MouseUp;
+
+            System.Threading.Thread.Sleep(1000);
+
+            Init();
+
+
+
 
             adder = new BackgroundWorker();
             adder.DoWork += Adder_DoWork;
             adder.RunWorkerAsync();
-            drawer = new BackgroundWorker();
-            drawer.DoWork += Drawer_DoWork;
-            drawer.RunWorkerAsync();
             physics = new BackgroundWorker();
             physics.DoWork += Physics_DoWork;
             physics.RunWorkerAsync();
-            //Application.Idle += HandleApplicationIdle;
+
         }
 
-        private int physicsInterval = 100000;
-        private int physicsCount = 0;
         private void Physics_DoWork(object sender, DoWorkEventArgs e)
         {
-            physicsCount = 0;
             while (true)
             {
-                physicsCount++;
-                if (physicsCount >= physicsInterval && _octree != null)
+                if (_octree != null)
                 {
-                    _octree.ProcessTimestep(.1f, Vector3.zero, Vector3.zero);
-                    //var collections = _octree.GetCollections();
-                    //Parallel.ForEach(collections, (collection) =>
-                    //{
-                    //    collection.SumPhysics();
-                    //});
-                    physicsCount = 0;
+                    _octree.ProcessTimestep(.001f, Vector3.Zero, Vector3.Zero);
                 }
-            }
-        }
-
-        bool doDraw = false;
-        private void Drawer_DoWork(object sender, DoWorkEventArgs e)
-        {
-            while (!_init)
-            {
-                System.Threading.Thread.Sleep(10);
-            }
-            while(true)
-            {
-                System.Threading.Thread.Sleep(10);
-                //if (doDraw)
-                {
-                    Draw();
-                    doDraw = false;
-                }
+                System.Threading.Thread.Sleep(100);
             }
         }
 
         private void Form1_MouseUp(object sender, MouseEventArgs e)
         {
             _mouseDown = false;
+            _mouseUp = true;
         }
 
         private void Form1_MouseDown(object sender, MouseEventArgs e)
         {
             _mouseDown = true;
+            _mouseUp = false;
         }
 
         private void Form1_MouseClick(object sender, MouseEventArgs e)
         {
             var location = new Vector3(e.X, e.Y, 250);
-            particleEmitter.EmitParticle(ref _octree, location, Vector3.zero, Vector3.zero, new UnityEngine.Bounds());
-
-
-            Bitmap bmp = new Bitmap(this.Width, this.Height);
-            using var g = System.Drawing.Graphics.FromImage(bmp);
-            //_octree.Draw(g);
-            _next = bmp;
-            _outdatedImage = true;
-            this.Invalidate();
+            particleEmitter.EmitParticle(ref _octree, location, Vector3.Zero, Vector3.Zero, Bounds);
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -135,136 +124,229 @@ namespace Ocdisplay
             return PeekMessage(out result, IntPtr.Zero, (uint)0, (uint)0, (uint)0) == 0;
         }
 
-        bool _outdatedImagedReceived = false;
-        //void HandleApplicationIdle(object sender, EventArgs e)
-        //{
-        //    while (IsApplicationIdle())
-        //    {
-        //        Update();
-        //        if (_outdatedImage)
-        //        {
-        //            this.Invalidate();
-        //            _outdatedImage = false;
-        //            _outdatedImagedReceived = true;
-        //        }
-        //    }
-        //}
 
-        private int renderInterval = 10000000;
-        private int renderCount = 0;
         private int radius = 25;
         private unsafe void Adder_DoWork(object sender, DoWorkEventArgs e)
         {
-            if (!_init)
-            {
-                Init();
-            }
-
             var otSize = _octree.to - _octree.from;
             var otCenter = _octree.from + otSize / 2;
             while (true)
             {
-                renderCount++;
-                if (renderCount == renderInterval)
-                {
-                    if (_mouseDown)
-                        try
+                if (_mouseUp)
+                    try
+                    {
+                        _mouseUp = false;
+
+                        var cusrorPos = System.Windows.Forms.Cursor.Position;
+                        for (var i = 0; i < 1; i++)
                         {
-
-                            var cusrorPos = System.Windows.Forms.Cursor.Position;
-                            //System.Threading.Thread.Sleep(1);
-                            //System.Threading.Thread.Sleep(10);
-                            for (var i = 0; i < 1; i++)
-                            {
-                                var cX = cusrorPos.X + (float)(ThreadSafeRandom.Next_s() * 2 * radius) - radius;
-                                var cY = cusrorPos.Y + (float)(ThreadSafeRandom.Next_s() * 2 * radius) - radius;
-                                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                                //var locationToAdd = new NodeTypeLocation3D(cX, cY, 500, false);
-
-                                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), (float)(r.NextDouble() + 10), false);
-                                var location = new Vector3(cX, cY, 500);
-                                particleEmitter.EmitParticle(ref _octree, location, Vector3.zero, Vector3.zero, new UnityEngine.Bounds(otCenter, otSize), density: 5.51f);
-                            }
-                            //Draw();
-                            doDraw = true;
-
+                            var cX = cusrorPos.X + (float)(ThreadSafeRandom.Next_s() * 2 * radius) - radius;
+                            var cY = cusrorPos.Y + (float)(ThreadSafeRandom.Next_s() * 2 * radius) - radius;
+                            var location = new Vector3(cX, cY, 500);
+                            particleEmitter.EmitParticle(ref _octree, location, Vector3.Zero, Vector3.Zero, Bounds);
                         }
-                        catch (Exception ex)
-                        {
+                        InitializeParticles();
+                    }
+                    catch (Exception ex)
+                    {
 
-                        }
-                    renderCount = 0;
-                }
-            }
-        }
-
-        private void Form1_Paint(object sender, PaintEventArgs e)
-        {
-            if(!_init)
-            {
-                Init();
-            }
-            else if (_outdatedImagedReceived)
-            {
-                _background = new Bitmap(_next);
-                this.BackgroundImage = _background;
-                //e.Graphics.DrawImage(_background, Point.Empty);
-                _outdatedImagedReceived = false;
+                    }
+                System.Threading.Thread.Sleep(1);
             }
         }
 
         private void Init()
         {
-            _background = new Bitmap(this.Width, this.Height);
-            using var gfx = System.Drawing.Graphics.FromImage(_background);
-            gfx.Clear(System.Drawing.Color.White);
-            this.BackgroundImage = _background;
-            _next = new Bitmap(_background);
-            _octree = new ParticleSpace3D(new Vector3(0, 0, 0), new Vector3(this.Width, this.Height, depth));
+            _octree = new ParticleSpace3D(new Vector3(0, 0, 0), new Vector3(width, this.height, depth));
+            InitializeDirectX();
+            Bounds = new AAABBB(new Point3D(0, 0, 0), new Point3D(width, height, depth));
             _init = true;
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void InitializeDirectX()
         {
-            if (!_init)
+            var desc = new SwapChainDescription()
             {
-                Init();
-                return;
-            }
-            
-            for (var i = 0; i < 1; i++)
+                BufferCount = 1,
+                ModeDescription = new ModeDescription(width, height, new Rational(60, 1), Format.R8G8B8A8_UNorm),
+                IsWindowed = true,
+                OutputHandle = Handle,
+                SampleDescription = new SampleDescription(1, 0),
+                SwapEffect = SwapEffect.Discard,
+                Usage = Usage.RenderTargetOutput
+            };
+
+            SharpDX.Direct3D11.Device.CreateWithSwapChain(DriverType.Hardware, DeviceCreationFlags.None, desc, out device, out swapChain);
+
+            using (var backBuffer = swapChain.GetBackBuffer<SharpDX.Direct3D11.Texture2D>(0))
             {
-                //var locationToAdd = new NodeTypeLocation3D((float)(r.NextDouble() * this.Width), (float)(r.NextDouble() * this.Height), (float)(r.NextDouble() * depth), false);
-                //_octree.Add(locationToAdd);
+                renderTargetView = new RenderTargetView(device, backBuffer);
             }
+            // Set a viewport that covers the entire window
+            device.ImmediateContext.Rasterizer.SetViewport(new Viewport(0, 0, this.Width, this.Height));
+            matrixBuffer = new Buffer(device, Utilities.SizeOf<Matrix>(), ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
 
-            //Draw();
+            // Orthographic projection to cover 10x10 units area
+            var projection = Matrix.OrthoOffCenterLH(-5, 5, -5, 5, -10, 10);
+            UpdateProjectionBuffer(projection);
 
-          
+            InitializeGraphics();
+            InitializeParticles();
+
+            SetupTimer();
+
+        }
+        private Buffer matrixBuffer;
+
+        private void UpdateMatrixBuffer()
+        {
+            // Create transformation matrices
+            var worldMatrix = Matrix.Identity;  // No transformation
+            var viewMatrix = Matrix.LookAtLH(new Vector3(0, 0, -5), new Vector3(0, 0, 0), Vector3.UnitY);
+            var projectionMatrix = Matrix.PerspectiveFovLH((float)Math.PI / 4, this.Width / (float)this.Height, 0.1f, 100.0f);
+
+            var worldViewProjection = worldMatrix * viewMatrix * projectionMatrix;
+            worldViewProjection.Transpose(); // HLSL expects column-major matrices
+
+            // Update the buffer
+            device.ImmediateContext.UpdateSubresource(ref worldViewProjection, matrixBuffer);
+
+            // Bind the buffer to the vertex shader
+            device.ImmediateContext.VertexShader.SetConstantBuffer(0, matrixBuffer);
         }
 
-        private void Draw()
-        {
-            //var otSize = _octree.Size();
-            //var otDepth = _octree.Depth();
 
-            Bitmap bmp = new Bitmap(this.Width, this.Height);
-            using var g = System.Drawing.Graphics.FromImage(bmp);
-            //_octree.Draw(g);
-            //g.DrawString($"Size: {otSize} Depth: {otDepth}", font, Brushes.Black, new PointF(50, 50));
-            foreach (var itm in _octree.GetParticles())
-            {
-                g.FillEllipse(Brushes.Black, new Rectangle((int)itm.Location.x, (int)itm.Location.y, 10, 10));
-                //System.Windows.Forms.Application.DoEvents();
-            }
-            //foreach (var bound in _octree.GetBoxCloud())
-            //{
-            //    g.DrawRectangle(Pens.YellowGreen, new Rectangle((int)bound.From.X, (int)bound.From.Y, (int)(bound.To.X - bound.From.X), (int)(bound.To.Y - bound.From.Y)));
-            //    Application.DoEvents();
-            //}
-            _next = bmp;
-            _outdatedImagedReceived = true;
-            this.Invalidate();
+        private void UpdateProjectionBuffer(Matrix projection)
+        {
+            projection.Transpose(); // Transpose for HLSL
+            var buffer = new Buffer(device, Utilities.SizeOf<Matrix>(), ResourceUsage.Default, BindFlags.ConstantBuffer, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+            device.ImmediateContext.VertexShader.SetConstantBuffer(0, buffer);
+            device.ImmediateContext.UpdateSubresource(ref projection, buffer);
         }
+        private void SetupTimer()
+        {
+            renderTimer = new System.Windows.Forms.Timer();
+            renderTimer.Interval = 16; // Roughly 60 FPS
+            renderTimer.Tick += (sender, args) => RenderFrame();
+            renderTimer.Start();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            renderTargetView.Dispose();
+            swapChain.Dispose();
+            device.Dispose();
+            base.OnClosed(e);
+        }
+
+
+
+        private List<ParticleEntity> _drawParticles;
+        private void InitializeParticles()
+        {
+            // Assuming you have some data structure to store your particles
+            _drawParticles = _octree.GetParticles();
+            UpdateVertexBuffer();
+            UpdateIndexBuffer();
+        }
+
+        private void UpdateVertexBuffer()
+        {
+            // Define vertices for a cube centered at the origin
+            Vertex[] vertices = new Vertex[]
+            {
+                // Front face
+                new Vertex(new Vector3(-0.5f, -0.5f, 0.5f), Color4.White),  // Vertex 0
+                new Vertex(new Vector3(0.5f, -0.5f, 0.5f), Color4.White),   // Vertex 1
+                new Vertex(new Vector3(-0.5f, 0.5f, 0.5f), Color4.White),   // Vertex 2
+                new Vertex(new Vector3(0.5f, 0.5f, 0.5f), Color4.White),    // Vertex 3
+
+                // Back face
+                new Vertex(new Vector3(-0.5f, -0.5f, -0.5f), Color4.White), // Vertex 4
+                new Vertex(new Vector3(0.5f, -0.5f, -0.5f), Color4.White),  // Vertex 5
+                new Vertex(new Vector3(-0.5f, 0.5f, -0.5f), Color4.White),  // Vertex 6
+                new Vertex(new Vector3(0.5f, 0.5f, -0.5f), Color4.White),   // Vertex 7
+            };
+
+            vertexBuffer?.Dispose(); // Dispose previous buffer if exists
+            vertexBuffer = Buffer.Create(device, BindFlags.VertexBuffer, vertices);
+            vertexCount = vertices.Length;
+        }
+
+        private void UpdateIndexBuffer()
+        {
+            // Define indices for the cube (each triplet represents a triangle)
+            ushort[] indices = new ushort[]
+            {
+        // Front face
+        0, 1, 2, 2, 1, 3,
+        // Back face
+        4, 6, 5, 5, 6, 7,
+        // Left face
+        4, 2, 6, 4, 0, 2,
+        // Right face
+        1, 5, 3, 3, 5, 7,
+        // Top face
+        2, 3, 6, 6, 3, 7,
+        // Bottom face
+        4, 5, 0, 0, 5, 1
+            };
+
+            indexBuffer?.Dispose(); // Dispose previous buffer if exists
+            indexBuffer = Buffer.Create(device, BindFlags.IndexBuffer, indices);
+            indexCount = indices.Length;
+        }
+
+
+        private void InitializeGraphics()
+        {
+            var shaderFlags = ShaderFlags.EnableStrictness;
+#if DEBUG
+            shaderFlags |= ShaderFlags.Debug;
+#endif
+
+            // Load and compile the vertex and pixel shaders
+            var vertexShaderByteCode = ShaderBytecode.CompileFromFile("shader.hlsl", "VS", "vs_5_0", shaderFlags);
+            if (vertexShaderByteCode.Message != null)
+            {
+                Console.WriteLine(vertexShaderByteCode.Message);
+            }
+            var pixelShaderByteCode = ShaderBytecode.CompileFromFile("shader.hlsl", "PS", "ps_5_0", shaderFlags);
+            if(pixelShaderByteCode.Message != null)
+            {
+                Console.WriteLine(pixelShaderByteCode.Message);
+            }
+            vertexShader = new VertexShader(device, vertexShaderByteCode);
+            pixelShader = new PixelShader(device, pixelShaderByteCode);
+
+            // Create input layout
+            inputLayout = new InputLayout(device, vertexShaderByteCode, Vertex.InputElements);
+        }
+
+        private int vertexCount;
+        private int indexCount;
+        private void RenderFrame()
+        {
+            UpdateMatrixBuffer();
+            // Ensure the device context is correctly configured
+            device.ImmediateContext.InputAssembler.SetVertexBuffers(0, new VertexBufferBinding(vertexBuffer, Utilities.SizeOf<Vertex>(), 0));
+            device.ImmediateContext.InputAssembler.SetIndexBuffer(indexBuffer, Format.R16_UInt, 0);
+            device.ImmediateContext.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+            device.ImmediateContext.InputAssembler.InputLayout = inputLayout;
+
+            // Set the shaders
+            device.ImmediateContext.VertexShader.Set(vertexShader);
+            device.ImmediateContext.PixelShader.Set(pixelShader);
+
+            // Clear the render target to a solid color
+            device.ImmediateContext.ClearRenderTargetView(renderTargetView, new RawColor4(0, 0, 0, 1));  // Black background
+
+            // Draw the indexed vertices in the vertex buffer
+            device.ImmediateContext.DrawIndexed(indexCount, 0, 0);
+
+            // Present the back buffer to the screen
+            swapChain.Present(0, PresentFlags.None);
+        }
+
     }
 }

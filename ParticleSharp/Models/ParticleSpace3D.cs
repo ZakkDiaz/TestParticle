@@ -1,17 +1,17 @@
 ﻿using ParticleLib.Models._3D;
-using ParticleLib.Models.Entities;
+using ParticleSharp.Models.Entities;
 using System.Numerics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ParticleLib.Models
+namespace ParticleSharp.Models
 {
     public partial class ParticleSpace3D
     {
         public Vector3 from;
         public Vector3 to;
-        private object particleLock = new object();
+        //private object particleLock = new object();
         private ConcurrentOctree particles;
         //QuadTreeRect<T> particles;
 
@@ -19,7 +19,7 @@ namespace ParticleLib.Models
         {
             from = _from;
             to = _to;
-            var diff = (to - from);
+            var diff = to - from;
             var center = (to + from) / 2;
             particles = new ConcurrentOctree(new Point3D(), new Point3D(diff.X, diff.Y, diff.Z));
 
@@ -35,13 +35,13 @@ namespace ParticleLib.Models
         //    }
         //}
 
-        public List<ParticleEntity> GetParticles() {
-                return particles.GetPointCloud().ToList(); 
+        public List<ParticleEntity> GetParticles()
+        {
+            return particles.GetPointCloud().ToList();
         }
 
         public void AddParticle(ParticleEntity particle)
         {
-            lock (particleLock)
                 particles.Add(particle);
         }
 
@@ -58,29 +58,23 @@ namespace ParticleLib.Models
         {
             //var items = new List<ParticleEntity>();
 
-            lock (particleLock)
-            {
-                p.Invoke(particles.GetPointCloud().ToList());
-            }
+            p.Invoke(particles.GetPointCloud().ToList());
         }
 
         internal void Remove(ParticleEntity p)
         {
-            lock (particleLock)
                 particles.Remove(p);
         }
 
         internal void Add(ParticleEntity p)
         {
-            lock (particleLock)
                 particles.Add(p);
         }
 
         internal void Move(ParticleEntity p)
         {
-            lock (particleLock) {  
                 particles.Move(p);
-            }
+            
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using ParticleLib.Models.Entities;
+﻿using ParticleSharp.Models;
+using ParticleSharp.Models.Entities;
 using System.Numerics;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -6,21 +7,23 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ParticleLib.Models._3D;
 
-namespace ParticleLib.Models
+namespace ParticleSharp.Models
 {
 
     public static class ParticleSpace2DExtensions
     {
-        public static bool ProcessTimestep(this ParticleSpace3D space, float diff, Vector3 focus, Vector3 BOUNDS)
+        public static bool ProcessTimestep(this ParticleSpace3D space, float diff, Vector3 focus, AAABBB BOUNDS)
         {
+
             ConcurrentBag<ParticleEntity> toRemove = new ConcurrentBag<ParticleEntity>();
             ConcurrentBag<ParticleEntity> toAdd = new ConcurrentBag<ParticleEntity>();
             var particles = space.GetParticles();
             Parallel.ForEach(particles, (p) =>
             {
 
-                if(p.pos().X < BOUNDS.X || p.pos().X > BOUNDS.X || p.pos().Y < BOUNDS.Y || p.pos().Y > BOUNDS.Y || p.pos().Z < BOUNDS.Z || p.pos().Z > BOUNDS.Z)
+                if(p.pos().X < BOUNDS.From.X || p.pos().X > BOUNDS.To.X || p.pos().Y < BOUNDS.From.Y || p.pos().Y > BOUNDS.To.Y || p.pos().Z < BOUNDS.From.Z || p.pos().Z > BOUNDS.To.Z)
                 {
                     toRemove.Add(p);
                     return;
@@ -29,7 +32,7 @@ namespace ParticleLib.Models
                 ProcessEntity(p, diff, focus, BOUNDS);
             });
 
-            ProcessEntityStates(space, BOUNDS, particles, toRemove, toAdd, diff);
+            space.ProcessEntityStates(BOUNDS, particles, toRemove, toAdd, diff);
 
 
             foreach (var p in toRemove)
@@ -41,7 +44,7 @@ namespace ParticleLib.Models
             return toRemove.Any() || toAdd.Any();
         }
 
-        private static void ProcessEntityStates(this ParticleSpace3D space, Vector3 BOUNDS, List<ParticleEntity> pList, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
+        private static void ProcessEntityStates(this ParticleSpace3D space, AAABBB BOUNDS, List<ParticleEntity> pList, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {
             //int dist = BOUNDS.x / 2;
             foreach (var p in pList)
@@ -59,6 +62,6 @@ namespace ParticleLib.Models
             }
         }
 
-        private static void ProcessEntity(ParticleEntity p, float diff, Vector3 focus, Vector3 BOUNDS) => p.ProcessTimestep(diff, focus, BOUNDS);
+        private static void ProcessEntity(ParticleEntity p, float diff, Vector3 focus, AAABBB BOUNDS) => p.ProcessTimestep(diff, focus, BOUNDS);
     }
 }

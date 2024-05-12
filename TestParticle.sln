@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30907.101
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34525.116
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestParticle", "TestParticle\TestParticle.csproj", "{4246A853-2CC9-400B-BCC8-F822D03E872E}"
 EndProject
@@ -10,6 +10,12 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StaticTree", "StaticTree\StaticTree.csproj", "{9C7D62B6-F477-44C1-A155-73DB27DE27EA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ocdisplay", "Ocdisplay\Ocdisplay.csproj", "{CAD1BDBD-5721-4F85-9762-01BEC058A54B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ParticleSharp", "ParticleSharp\ParticleSharp.csproj", "{09D96A35-E74D-432D-A0DE-06AFD48E228E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BarnesHut", "BarnesHut\BarnesHut.csproj", "{07A2E9A4-E30B-43FE-985A-BE466753D855}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BHLib", "BHLib\BHLib.csproj", "{499102EF-2DB1-4DB8-95D0-11F550682A88}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -49,6 +55,30 @@ Global
 		{CAD1BDBD-5721-4F85-9762-01BEC058A54B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CAD1BDBD-5721-4F85-9762-01BEC058A54B}.Release|x64.ActiveCfg = Release|x64
 		{CAD1BDBD-5721-4F85-9762-01BEC058A54B}.Release|x64.Build.0 = Release|x64
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Debug|x64.Build.0 = Debug|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Release|x64.ActiveCfg = Release|Any CPU
+		{09D96A35-E74D-432D-A0DE-06AFD48E228E}.Release|x64.Build.0 = Release|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Debug|x64.Build.0 = Debug|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Release|x64.ActiveCfg = Release|Any CPU
+		{07A2E9A4-E30B-43FE-985A-BE466753D855}.Release|x64.Build.0 = Release|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Debug|x64.Build.0 = Debug|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Release|Any CPU.Build.0 = Release|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Release|x64.ActiveCfg = Release|Any CPU
+		{499102EF-2DB1-4DB8-95D0-11F550682A88}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,17 +1,21 @@
-﻿using System.Numerics;
+﻿using ParticleSharp.Models;
+using ParticleSharp.Models.Entities;
+using System.Numerics;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Numerics;
+using ParticleLib.Models._3D;
 
-namespace ParticleLib.Models.Entities
+namespace ParticleSharp.Models.Entities
 {
     public class ParticleEntity : ITimesteppableLocationEntity
     {
         public Vector3 pos() => new Vector3(dimenisons[0].pos, dimenisons[1].pos, dimenisons[2].pos);
 
-        void ITimesteppableEntity.ProcessTimestep(float diff, Vector3 focus, Vector3 BOUNDS)
+        void ITimesteppableEntity.ProcessTimestep(float diff, Vector3 focus, AAABBB BOUNDS)
         {
-            ParticleEntityExtensions.ProcessTimestep(this, diff, focus, BOUNDS);
+            this.ProcessTimestep(diff, focus, BOUNDS);
         }
 
         public List<DimensionProperty> dimenisons;
@@ -39,9 +43,9 @@ namespace ParticleLib.Models.Entities
 
     public static class ParticleEntityExtensions
     {
-        public static void ProcessTimestep(this ParticleEntity entity, float diff, Vector3 focus, Vector3 BOUNDS)
+        public static void ProcessTimestep(this ParticleEntity entity, float diff, Vector3 focus, AAABBB BOUNDS)
         {
-            for(var i = 0; i < entity.dimenisons.Count; i++)
+            for (var i = 0; i < entity.dimenisons.Count; i++)
             {
                 var dim = entity.dimenisons[i];
                 dim = DimensionPropertyExtensions.ProcessTimestep(dim, entity._deltaStep * diff, entity.mass, BOUNDS);
@@ -55,7 +59,7 @@ namespace ParticleLib.Models.Entities
             }
 
             if (entity.isEvaporating)
-                entity.mass -= (entity._deltaStep * diff) / 10;
+                entity.mass -= entity._deltaStep * diff / 10;
 
             var epos = entity.pos();
             entity.Location = epos;
@@ -81,15 +85,15 @@ namespace ParticleLib.Models.Entities
             entity.dimenisons[2] = refz;
         }
 
-    //    public static void AddAccel(this ParticleEntity entity, int dimension, float acc)
-    //    {
-    //        entity.dimenisons[dimension].AddAccel(acc);
-    //    }
+        //    public static void AddAccel(this ParticleEntity entity, int dimension, float acc)
+        //    {
+        //        entity.dimenisons[dimension].AddAccel(acc);
+        //    }
 
         internal static float DistanceFrom(this ParticleEntity entity, ParticleEntity p2)
         {
             //var calculatedDiff = Math.Abs((p2.dimenisons[0].pos - entity.dimenisons[0].pos) + (p2.dimenisons[1].pos - entity.dimenisons[1].pos) + (p2.dimenisons[2].pos - entity.dimenisons[2].pos));
-            var diff = (p2.pos() - entity.pos());
+            var diff = p2.pos() - entity.pos();
             return diff.Length();
         }
 
@@ -112,7 +116,7 @@ namespace ParticleLib.Models.Entities
         {
             var shellMult = 10;
             var dist = entity.DistanceFrom(p2) / shellMult;
-            return (dist < Math.Sqrt(entity.mass) || dist < Math.Sqrt(entity.mass));
+            return dist < Math.Sqrt(entity.mass) || dist < Math.Sqrt(entity.mass);
         }
 
         //internal static void SetSpeed(this ParticleEntity entity, Vector3 vel)
@@ -174,13 +178,13 @@ namespace ParticleLib.Models.Entities
 
         internal static void Interact(this ParticleEntity entity, IEnumerable<ParticleEntity> p2, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
         {
-            foreach(var entity2 in p2)
+            foreach (var entity2 in p2)
             {
                 if (entity == entity2)
                     continue;
                 DoParticleInteraction(entity, entity2, toRemove, toAdd, diff);
             }
-            
+
         }
 
         private static void DoParticleInteraction(ParticleEntity entity, ParticleEntity p2, ConcurrentBag<ParticleEntity> toRemove, ConcurrentBag<ParticleEntity> toAdd, float diff)
@@ -189,14 +193,16 @@ namespace ParticleLib.Models.Entities
             if (entity != null && p2 != null)
                 if (entity != p2)
                 {
-                    var g = 1f;
+                    var g = 5f;
                     var posDiff = p2.Location - entity.Location;// entity.AngleFor(p2.Location);
                     var dist = entity.DistanceFrom(p2);
+                    if (dist < 25)
+                        dist = 25;
                     //if(dist == float.NaN)
                     //{
 
                     //}
-                    var mt = (entity.mass + p2.mass);
+                    var mt = entity.mass + p2.mass;
                     //if (entity.Intersects(p2))
                     //{
                     //    //var vTot = (float)Math.Sqrt(Math.Pow(Math.Abs(entity.vel().x * entity.mass / mt), 2) + Math.Pow(Math.Abs(entity.vel().y * entity.mass / mt), 2));
@@ -246,9 +252,9 @@ namespace ParticleLib.Models.Entities
 
                     if (entity.isGravitational && p2.isGravitational)
                     {
-                        float forceMult = -(float)(((entity.mass * p2.mass)) / Math.Pow(dist, 2)) * g;
+                        float forceMult = -(float)(entity.mass * p2.mass / Math.Pow(dist, 2)) * g;
                         entity.AddForce(posDiff, -forceMult * (p2.mass / mt) * diff * entity._deltaStep);
-                        p2.AddForce(posDiff, (forceMult * (entity.mass / mt) * diff * p2._deltaStep));
+                        p2.AddForce(posDiff, forceMult * (entity.mass / mt) * diff * p2._deltaStep);
                     }
 
                     //if (entity.isGravitational && p2.isGravitational)

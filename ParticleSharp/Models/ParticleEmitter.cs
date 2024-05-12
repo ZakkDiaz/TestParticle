@@ -1,8 +1,8 @@
 ﻿using ParticleLib.Models._3D;
-using ParticleLib.Models.Entities;
+using ParticleSharp.Models.Entities;
 using System.Numerics;
 
-namespace ParticleLib.Models
+namespace ParticleSharp.Models
 {
     public class ParticleEmitter
     {

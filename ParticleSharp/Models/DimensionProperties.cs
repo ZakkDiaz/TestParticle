@@ -1,7 +1,7 @@
-﻿
+﻿using ParticleLib.Models._3D;
 using System.Numerics;
 
-namespace ParticleLib.Models
+namespace ParticleSharp.Models
 {
     public struct DimensionProperty
     {
@@ -42,7 +42,7 @@ namespace ParticleLib.Models
     }
     public static class DimensionPropertyExtensions
     {
-        public static DimensionProperty ProcessTimestep(DimensionProperty entity, float stepSize, float mass, Vector3 BOUNDS)
+        public static DimensionProperty ProcessTimestep(DimensionProperty entity, float stepSize, float mass, AAABBB BOUNDS)
         {
             entity.ProcessRotation(stepSize, mass);
             entity = entity.ProcessPosition(stepSize, mass, BOUNDS);
@@ -61,7 +61,7 @@ namespace ParticleLib.Models
             //}
         }
 
-        private static DimensionProperty ProcessPosition(this DimensionProperty entity, float stepSize, float mass, Vector3 BOUNDS)
+        private static DimensionProperty ProcessPosition(this DimensionProperty entity, float stepSize, float mass, AAABBB BOUNDS)
         {
             //if (entity.vel == float.NaN)
             //    entity.vel = 0;
@@ -75,7 +75,7 @@ namespace ParticleLib.Models
             //    entity.acc -= amt;
             //}
 
-            entity.pos += (entity.vel * stepSize);
+            entity.pos += entity.vel * stepSize;
             //if (entity.pos > BOUNDS.x)
             //{
             //    entity.pos = 0;

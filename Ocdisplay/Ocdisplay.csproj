@@ -20,13 +20,27 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SharpDX" Version="4.2.0" />
+    <PackageReference Include="SharpDX.D3DCompiler" Version="4.2.0" />
+    <PackageReference Include="SharpDX.Direct3D11" Version="4.2.0" />
+    <PackageReference Include="SharpDX.DXGI" Version="4.2.0" />
+    <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ParticleLib\ParticleLib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="shader.hlsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--<ItemGroup>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\ParticleLib\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
-  </ItemGroup>
+  </ItemGroup>-->
 
 </Project>

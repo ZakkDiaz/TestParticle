@@ -6,7 +6,7 @@ namespace StaticTree
 {
     class Program
     {
-        public static Octree octree { get; set; }
+        public static ConcurrentOctree octree { get; set; }
         unsafe static void Main(string[] args)
         {
             //Console.WriteLine("Hello World!");
@@ -14,7 +14,7 @@ namespace StaticTree
             var width = 1000;
             var height = 1000;
             var depth = 1000;
-            octree = new Octree(new Point3D(), new Point3D(width, height, depth));
+            octree = new ConcurrentOctree(new Point3D(), new Point3D(width, height, depth));
             //Random r = new Random();
             //var font = new Font("Arial", 20);
             //var z = 0;

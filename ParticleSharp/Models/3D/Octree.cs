@@ -1,23 +1,22 @@
-﻿using ParticleLib.Models.Entities;
+﻿using ParticleSharp.Models.Entities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Numerics;
 
 namespace ParticleLib.Models._3D
 {
     public class ConcurrentOctree : AAABBB
     {
-        ConcurrentQueue<Task> taskQueue = new ConcurrentQueue<Task>();
-        Thread _taskThread;
         public OctreeNode OctreeNode { get; set; }
         private ConcurrentDictionary<ulong, NodeCollection> _octreeHeap = new ConcurrentDictionary<ulong, NodeCollection>();
         private ConcurrentDictionary<IntPtr, ParticleEntity> _objRefs = new ConcurrentDictionary<IntPtr, ParticleEntity>();
         private ConcurrentDictionary<IntPtr, NodeTypeLayer3D> _locationRefs = new ConcurrentDictionary<IntPtr, NodeTypeLayer3D>();
+        private ConcurrentDictionary<ParticleEntity, GCHandle> entityHandles = new ConcurrentDictionary<ParticleEntity, GCHandle>();
 
         public List<NodeCollection> GetCollections()
         {
@@ -26,57 +25,83 @@ namespace ParticleLib.Models._3D
 
         public void Remove(ParticleEntity entity)
         {
-                taskQueue.Enqueue(new Task(() => { RemoveTask(entity); }));
+            Task.Run(() => { RemoveTask(entity); });
         }
 
         public void Move(ParticleEntity entity)
         {
-                taskQueue.Enqueue(new Task(() => { MoveTask(entity); }));
+            Task.Run(() => { MoveTask(entity); });
         }
         private void MoveTask(ParticleEntity entity)
         {
-            RemoveEntity(entity, OctreeNode);
-            Add(OctreeNode, entity);
+            try
+            {
+                RemoveEntity(entity, OctreeNode);
+                Add(OctreeNode, entity);
+            } catch(Exception ex)
+            {
+
+            }
         }
 
         private void RemoveTask(ParticleEntity entity)
         {
-            var ptr = (IntPtr)GCHandle.Alloc(entity);
-            _objRefs.TryRemove(ptr, out ParticleEntity _pe);
+            try
+            {
+                if (entityHandles.TryRemove(entity, out GCHandle handle))
+                {
+                    IntPtr ptr = (IntPtr)handle;
+                    _objRefs.TryRemove(ptr, out _);
+                    handle.Free(); // Important to avoid memory leaks
+                }
 
-            RemoveEntity(entity, OctreeNode);
+                RemoveEntity(entity, OctreeNode);
+            } catch(Exception ex)
+            {
+
+            }
 
         }
 
         private bool RemoveEntity(ParticleEntity entity, OctreeNode octreeNode)
         {
-            _locationRefs.TryGetValue(octreeNode.ObjPtr, out NodeTypeLayer3D layer);
-            var idx = layer.ChildLocationItems.IndexOf(entity);
-            if(idx >= 0)
+            if (_locationRefs.TryGetValue(octreeNode.ObjPtr, out NodeTypeLayer3D layer))
             {
-                layer.ChildLocationItems[idx] = null;
-                return true;
-            }
-            _octreeHeap.TryGetValue(octreeNode.LocCode, out NodeCollection nodeCollection);
+                for(var i = 0; i < layer.ChildLocationItems.Count; i++)
+                {
+                    if (layer.ChildLocationItems[i] == entity)
+                    {
+                        layer.ChildLocationItems[i] = null;
+                        if(layer.ChildLocationItems.Count == 0)
+                        {
+                            bool _rem =_locationRefs.TryRemove(octreeNode.ObjPtr, out _);
+                        }
+                        return true;
+                    }
+                }
 
-            bool removed = false;
-            if (nodeCollection._000.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._000.Value);
-            if (!removed && nodeCollection._001.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._001.Value);
-            if (!removed && nodeCollection._010.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._010.Value);
-            if (!removed && nodeCollection._011.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._011.Value);
-            if (!removed && nodeCollection._100.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._100.Value);
-            if (!removed && nodeCollection._101.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._101.Value);
-            if (!removed && nodeCollection._110.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._110.Value);
-            if (!removed && nodeCollection._111.HasValue)
-                removed = RemoveEntity(entity, nodeCollection._111.Value);
-            return removed;
+                _octreeHeap.TryGetValue(octreeNode.LocCode, out NodeCollection nodeCollection);
+
+                bool removed = false;
+                if (nodeCollection._000.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._000.Value);
+                if (!removed && nodeCollection._001.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._001.Value);
+                if (!removed && nodeCollection._010.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._010.Value);
+                if (!removed && nodeCollection._011.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._011.Value);
+                if (!removed && nodeCollection._100.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._100.Value);
+                if (!removed && nodeCollection._101.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._101.Value);
+                if (!removed && nodeCollection._110.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._110.Value);
+                if (!removed && nodeCollection._111.HasValue)
+                    removed = RemoveEntity(entity, nodeCollection._111.Value);
+                return removed;
+            }
+            return false;
         }
 
         //public void ProcessParticles(IParticleProcessor particleProcessor)
@@ -92,11 +117,6 @@ namespace ParticleLib.Models._3D
         public ParticleEntity[] GetPointCloud()
         {
             return _objRefs.Values.ToArray();
-        }
-
-        public bool AnyToAdd()
-        {
-            return taskQueue.Any();
         }
 
         public AAABBB[] GetBoxCloud()
@@ -359,11 +379,12 @@ namespace ParticleLib.Models._3D
         //    while(true)
         //    {
         //        List<Task> toRun = new List<Task>();
-        //        while (taskQueue.Any())
-        //        {
-        //            taskQueue.TryDequeue(out Task t);
-        //            toRun.Add(t);
-        //        }
+        //        lock (taskLock)
+        //            if (taskQueue.Any())
+        //            {
+        //                toRun.AddRange(taskQueue.ToList());
+        //                taskQueue = new List<Task>();
+        //            }
         //        toRun.ForEach(task => task.Start());
         //        //Task.Factory.StartNew(() => );
 
@@ -385,22 +406,30 @@ namespace ParticleLib.Models._3D
 
         public void AddAsync(float x, float y, float z)
         {
-            taskQueue.Enqueue(new Task(() => { Add(x, y, z); }));
+            Task.Run(() => { Add(x, y, z); });
         }
 
         public void Add(ParticleEntity particle)
         {
-            taskQueue.Enqueue(new Task(() => {
-                    var ptr = (IntPtr)GCHandle.Alloc(particle);
+                Task.Run(() => {
+                    //var ptr = (IntPtr)GCHandle.Alloc(particle);
+                    //_objRefs.TryAdd(ptr, particle);
+                    //Add(OctreeNode, particle);
+
+
+
+                    var handle = GCHandle.Alloc(particle, GCHandleType.Weak); // Consider using Weak if lifecycle allows
+                    IntPtr ptr = (IntPtr)handle;
                     _objRefs.TryAdd(ptr, particle);
+                    entityHandles.TryAdd(particle, handle);
                     Add(OctreeNode, particle);
-                }));
+                });
         }
 
         private void Add(float x, float y, float z)
         {
             var particle = new ParticleEntity();
-            particle.Location = new Vector3(x, y, z);
+            particle.Location = new Vector3(x, y, z); ;
             var ptr = (IntPtr)GCHandle.Alloc(particle);
 
             _objRefs.TryAdd(ptr, particle);
@@ -410,7 +439,7 @@ namespace ParticleLib.Models._3D
 
         private void AddAsyncRec(OctreeNode parentNode, ParticleEntity pointLocation, int depth = 4)
         {
-                taskQueue.Enqueue(new Task(() => { Add(parentNode, pointLocation, depth); }));
+            Task.Run(() => { Add(parentNode, pointLocation, depth); });
         }
 
         unsafe private void Add(OctreeNode parentNode, ParticleEntity pointLocation, int depth = 4)
