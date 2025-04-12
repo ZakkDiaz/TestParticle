@@ -329,7 +329,7 @@ namespace ParticleLib.Models._3D
             lock (taskLock)
                 taskQueue.Add(new Task(() => { Add(x, y, z); }));
         }
-        private void Add(float x, float y, float z)
+        public void Add(float x, float y, float z)
         {
             var location = new NodeTypeLocation3D(x, y, z, false);
             var ptr = (IntPtr)GCHandle.Alloc(location);
