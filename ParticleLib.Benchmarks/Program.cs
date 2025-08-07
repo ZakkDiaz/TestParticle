@@ -21,7 +21,7 @@ namespace ParticleLib.Benchmarks
         private OriginalOctree _originalOctree;
         private ModernOctree _modernOctree;
 
-        [Params(100, 1000, 10000)]
+        [Params(10, 100, 1000)]
         public int ParticleCount { get; set; }
 
         [GlobalSetup]

@@ -25,7 +25,7 @@ namespace ParticleLib.Modern.Tests
         public void ComparePerformance()
         {
             // Configuration
-            int particleCount = 10000;
+            int particleCount = 1000;
             int iterations = 3;
             var random = new Random(42); // Fixed seed for reproducibility
 

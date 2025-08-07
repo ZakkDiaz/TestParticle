@@ -203,7 +203,8 @@ namespace ParticleLib.Modern.Models._3D
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int CommonPrefixLength(ulong a, ulong b)
         {
-            return BitOperations.LeadingZeroCount(a ^ b);
+            ulong xor = a ^ b;
+            return xor == 0 ? 64 : BitOperations.TrailingZeroCount(xor);
         }
 
         /// <summary>

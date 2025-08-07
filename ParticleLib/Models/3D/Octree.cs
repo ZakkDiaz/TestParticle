@@ -601,7 +601,7 @@ namespace ParticleLib.Models._3D
             var ptr = (IntPtr)GCHandle.Alloc(layerNode);
 
             //Remove this and add another ref to a point collection
-            //Then from quad calculate the point location relative to the point referenced (head = center, 000 = center/2, 111 = center * 2)
+            //Then from quad calculate the point location relative to the point referenced (head = center, 000 = center - 1/2, 111 = center + 1/2)
 
 
             _locationRefs.TryAdd(ptr, layerNode);

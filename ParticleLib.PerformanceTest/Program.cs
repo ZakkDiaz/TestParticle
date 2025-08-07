@@ -18,8 +18,8 @@ namespace ParticleLib.PerformanceTest
             Console.WriteLine("=======================");
 
             // Configuration
-            int particleCount = 100;
-            int iterations = 3;
+            int particleCount = 10000;
+            int iterations = 10;
             var random = new Random(42); // Fixed seed for reproducibility
 
             // Generate test data
@@ -125,10 +125,10 @@ namespace ParticleLib.PerformanceTest
             double modernDepthAvg = modernDepthTime / (double)iterations;
 
             // Calculate speedup factors
-            double constructionSpeedup = originalConstructionAvg / Math.Max(1, modernConstructionAvg);
-            double addSpeedup = originalAddAvg / Math.Max(1, modernAddAvg);
-            double getPointsSpeedup = originalGetPointsAvg / Math.Max(1, modernGetPointsAvg);
-            double depthSpeedup = originalDepthAvg / Math.Max(1, modernDepthAvg);
+            double constructionSpeedup = originalConstructionAvg / Math.Max(0.0000001, modernConstructionAvg);
+            double addSpeedup = originalAddAvg / Math.Max(0.0000001, modernAddAvg);
+            double getPointsSpeedup = originalGetPointsAvg / Math.Max(0.0000001, modernGetPointsAvg);
+            double depthSpeedup = originalDepthAvg / Math.Max(0.0000001, modernDepthAvg);
 
             // Output results
             Console.WriteLine("\nResults:");
