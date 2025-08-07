@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 
 namespace ParticleLib.Modern.Models._3D
 {
-    /// <summary>Represents a node in the octree.</summary>
     [StructLayout(LayoutKind.Sequential)]
     public readonly struct OctreeNode : IEquatable<OctreeNode>
     {
@@ -25,33 +24,24 @@ namespace ParticleLib.Modern.Models._3D
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static OctreeNode CreateRoot(AAABBB box) => new OctreeNode(0, 0, box, 0);
 
+        // depth-marker bit removed; only shift left then OR octant
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public OctreeNode CreateChild(byte octant)
         {
-            var octants = BoundingBox.Split();
-            byte newDepth = (byte)(Depth + 1);
-
-            // shift left, add octant ...
-            ulong childCode = (MortonCode << 3) | octant;
-
-            // ... then mark this depth
-            childCode |= 1UL << (3 * newDepth);
-
-            return new OctreeNode(childCode, newDepth, octants[octant], octant);
+            var sub = BoundingBox.Split();
+            ulong code = (MortonCode << 3) | octant;
+            return new OctreeNode(code, (byte)(Depth + 1), sub[octant], octant);
         }
-
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte GetChildOctantForPoint(Point3D p) => BoundingBox.GetOctant(p);
 
-        public bool Equals(OctreeNode other) => MortonCode == other.MortonCode;
-        public override bool Equals(object obj) => obj is OctreeNode o && Equals(o);
-        public override int GetHashCode() => MortonCode.GetHashCode();
-        public override string ToString() => $"Node[Morton={MortonCode}, Depth={Depth}, Octant={Octant}]";
+        public bool Equals(OctreeNode other) => MortonCode == other.MortonCode && Depth == other.Depth;
+        public override bool Equals(object obj) => obj is OctreeNode n && Equals(n);
+        public override int GetHashCode() => ((int)MortonCode) ^ ((int)(MortonCode >> 32)) ^ Depth;
+        public override string ToString() => $"Node[{MortonCode}, d{Depth}, o{Octant}]";
     }
 
-    /// <summary>Node categories for bookkeeping.</summary>
     [Flags]
     public enum NodeType
     {

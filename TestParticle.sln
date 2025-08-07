@@ -9,9 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ParticleLib.Modern", "Parti
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ParticleLib.Modern.Tests", "ParticleLib.Modern.Tests\ParticleLib.Modern.Tests.csproj", "{CFBBDE66-6F83-476F-A435-EEFD959FA417}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParticleLib.Benchmarks", "ParticleLib.Benchmarks\ParticleLib.Benchmarks.csproj", "{02DE627C-7677-418D-8E3E-78F1272AD0F6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ParticleLib.Benchmarks", "ParticleLib.Benchmarks\ParticleLib.Benchmarks.csproj", "{02DE627C-7677-418D-8E3E-78F1272AD0F6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParticleLib.PerformanceTest", "ParticleLib.PerformanceTest\ParticleLib.PerformanceTest.csproj", "{2C27634F-B3AE-474A-AEE8-4BCCFAFE05B7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ParticleLib.PerformanceTest", "ParticleLib.PerformanceTest\ParticleLib.PerformanceTest.csproj", "{2C27634F-B3AE-474A-AEE8-4BCCFAFE05B7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

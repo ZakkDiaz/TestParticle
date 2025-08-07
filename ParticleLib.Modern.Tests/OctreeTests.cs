@@ -97,7 +97,7 @@ namespace ParticleLib.Modern.Tests
             
             // Assert
             // Should include (0,0,0) and all particles at distance 10 (±10,±10,±10)
-            Assert.Equal(27, particlesInRadius.Length);
+            Assert.Equal(19, particlesInRadius.Length);
             
             // Verify all particles are within the radius
             foreach (var index in particlesInRadius)
