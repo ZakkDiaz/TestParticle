@@ -1,61 +1,73 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using System.Xml.Linq;
 using Microsoft.Extensions.ObjectPool;
 
 namespace ParticleLib.Modern.Models._3D
 {
     /// <summary>
-    /// High-performance octree with per-node locking and pooled leaves.
+    /// High-performance octree (Morton-free) with per-node locks and pooled leaf lists.
+    /// Public surface is unchanged. Internals are simpler and deadlock-safe.
     /// </summary>
     public sealed class Octree : IDisposable
     {
-        private readonly OctreeNode _root;
-        private readonly ConcurrentDictionary<NodeKey, int> _nodeIndices = new();
-        private readonly ConcurrentDictionary<int, List<int>> _leafParticles = new();
-        private readonly List<OctreeNode> _nodes = new();
-        private readonly List<Point3D> _particles = new();
-        private readonly List<int> _particleLeaf = new();
-        private readonly List<NodeSpinLock> _nodeLocks = new();
+        // ---------- config ----------
+        private readonly int _maxParticlesPerLeaf;
+        private readonly int _maxDepth;
+
+        // ---------- global state ----------
+        private readonly List<NodeEntry> _nodes = new();
+        private readonly object _particleArraysLock = new object();
+        private readonly ReaderWriterLockSlim _treeLock = new(LockRecursionPolicy.NoRecursion);
 
         private static readonly ObjectPool<List<int>> _listPool =
             new DefaultObjectPoolProvider { MaximumRetained = 1024 }.Create<List<int>>();
 
-        private readonly object _particleArraysLock = new object();
+        // particle arrays
+        private readonly List<Point3D> _particles = new();
+        private readonly List<int> _particleLeaf = new(); // index -> leaf node index
+        private readonly List<int> _indexInLeaf = new(); // particleId -> index within its leaf list
 
-        // --- config ---
-        private readonly int _maxParticlesPerLeaf;
-        private readonly int _maxDepth;
-
-        private readonly ReaderWriterLockSlim _treeLock = new();
-
+        // reflow queue
         private readonly ConcurrentQueue<int> _particlesToReflow = new();
-        private readonly ConcurrentDictionary<int, NodeType> _particleNodeTypes = new();
+        private const int BulkInsertThreshold = 8192;
 
-        public AAABBB Bounds => _root.BoundingBox;
-        public int ParticleCount => _particles.Count;
-        public int NodeCount => _nodes.Count;
+        // root (always index 0 in _nodes)
+        private readonly NodeEntry _root;
+
+        // ---------- public surface ----------
+        public AAABBB Bounds => _root.Node.BoundingBox;
+
+        public int ParticleCount
+        {
+            get { lock (_particleArraysLock) return _particles.Count; }
+        }
+
+        public int NodeCount
+        {
+            get { _treeLock.EnterReadLock(); try { return _nodes.Count; } finally { _treeLock.ExitReadLock(); } }
+        }
 
         public Octree(AAABBB bounds, int maxParticlesPerLeaf = 10, int maxDepth = 27)
         {
-            _maxParticlesPerLeaf = maxParticlesPerLeaf;
-            _maxDepth = maxDepth;
+            _maxParticlesPerLeaf = Math.Max(1, maxParticlesPerLeaf);
+            _maxDepth = Math.Max(0, maxDepth);
 
-            _root = OctreeNode.CreateRoot(bounds);
-            _nodes.Add(_root);
-            _nodeIndices[new NodeKey(_root.MortonCode, 0)] = 0;
-            _nodeLocks.Add(new NodeSpinLock());
+            // Create root as a LEAF with an empty pooled list
+            _root = new NodeEntry(OctreeNode.CreateRoot(bounds), _listPool.Get());
 
-            _leafParticles[0] = _listPool.Get();
+            _treeLock.EnterWriteLock();
+            try
+            {
+                _nodes.Add(_root); // index 0
+            }
+            finally { _treeLock.ExitWriteLock(); }
         }
 
-        // --------------- public API ---------------
+        // ----------------- public API -----------------
 
         public int AddParticle(Point3D position)
         {
@@ -68,78 +80,249 @@ namespace ParticleLib.Modern.Models._3D
                 idx = _particles.Count;
                 _particles.Add(position);
                 _particleLeaf.Add(-1);
+                _indexInLeaf.Add(-1);
             }
             InsertParticle(idx, position);
             return idx;
         }
 
+
         public int[] AddParticles(IEnumerable<Point3D> positions)
         {
-            var arr = positions.ToArray();
-            var outIdx = new int[arr.Length];
-            for (int i = 0; i < arr.Length; i++)
-                outIdx[i] = AddParticle(arr[i]);
-            ProcessParticleReflow();
+            if (positions is null) return Array.Empty<int>();
+            var arr = positions as IList<Point3D> ?? positions.ToList();
+            if (arr.Count == 0) return Array.Empty<int>();
+
+            // Small batches: stick with single inserts (keeps contention minimal)
+            if (arr.Count < BulkInsertThreshold)
+            {
+                var outIdx = new int[arr.Count];
+                for (int i = 0; i < arr.Count; i++)
+                    outIdx[i] = AddParticle(arr[i]);
+                ProcessParticleReflow();
+                return outIdx;
+            }
+
+            // Large batch: partition top-down under a single write lock
+            return BulkAddParticles(arr);
+        }
+        private int[] BulkAddParticles(IList<Point3D> arr)
+        {
+            int n = arr.Count;
+            var outIdx = new int[n];
+
+            // 1) Reserve IDs & write particle positions
+            int baseId;
+            lock (_particleArraysLock)
+            {
+                baseId = _particles.Count;
+                _particles.Capacity = Math.Max(_particles.Capacity, baseId + n);
+                _particleLeaf.Capacity = Math.Max(_particleLeaf.Capacity, baseId + n);
+                _indexInLeaf.Capacity = Math.Max(_indexInLeaf.Capacity, baseId + n);
+
+                for (int i = 0; i < n; i++)
+                {
+                    _particles.Add(arr[i]);
+                    _particleLeaf.Add(-1);
+                    _indexInLeaf.Add(-1);
+                    outIdx[i] = baseId + i;
+                }
+            }
+
+            // 2) Single-writer build: top-down binning of the new IDs
+            _treeLock.EnterWriteLock();
+            try
+            {
+                // Queue of (nodeIdx, binOfParticleIds)
+                var q = new Queue<(int node, List<int> bin)>(128);
+
+                // Root bin
+                var rootBin = _listPool.Get();
+                for (int i = 0; i < n; i++) rootBin.Add(baseId + i);
+                q.Enqueue((0, rootBin));
+
+                while (q.Count > 0)
+                {
+                    var (nodeIdx, bin) = q.Dequeue();
+                    var e = _nodes[nodeIdx];
+
+                    if (e.IsLeaf)
+                    {
+                        if (e.Node.Depth >= _maxDepth || e.Leaf!.Count + bin.Count <= _maxParticlesPerLeaf)
+                        {
+                            // Append all at once + index bookkeeping
+                            var list = e.Leaf!;
+                            int baseCount = list.Count;
+                            list.EnsureCapacity(baseCount + bin.Count);
+                            list.AddRange(bin);
+                            for (int i = 0; i < bin.Count; i++)
+                            {
+                                int pid = bin[i];
+                                _particleLeaf[pid] = nodeIdx;
+                                _indexInLeaf[pid] = baseCount + i;
+                            }
+
+                            bin.Clear(); _listPool.Return(bin);
+                        }
+                        else
+                        {
+                            // Split this leaf, partition existing + new bin to children, then continue
+                            var parts = e.Leaf!;
+                            e.Leaf = null; // becomes internal
+
+                            List<int>?[] childBins = new List<int>?[8];
+
+                            // existing payload
+                            for (int i = 0; i < parts.Count; i++)
+                            {
+                                int pid = parts[i];
+                                var p = _particles[pid];
+                                byte oct = e.Node.GetChildOctantForPoint(p);
+                                (childBins[oct] ??= _listPool.Get()).Add(pid);
+                            }
+                            parts.Clear(); _listPool.Return(parts);
+
+                            // new payload for this node
+                            for (int i = 0; i < bin.Count; i++)
+                            {
+                                int pid = bin[i];
+                                var p = _particles[pid];
+                                byte oct = e.Node.GetChildOctantForPoint(p);
+                                (childBins[oct] ??= _listPool.Get()).Add(pid);
+                            }
+                            bin.Clear(); _listPool.Return(bin);
+
+                            for (byte oct = 0; oct < 8; oct++)
+                            {
+                                var cb = childBins[oct];
+                                if (cb is null || cb.Count == 0) continue;
+
+                                int childIdx = EnsureChild_NoLock(nodeIdx, oct);
+                                q.Enqueue((childIdx, cb)); // process child in the same loop
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Internal node: just route the bin to children
+                        List<int>?[] childBins = new List<int>?[8];
+                        for (int i = 0; i < bin.Count; i++)
+                        {
+                            int pid = bin[i];
+                            var p = _particles[pid];
+                            byte oct = e.Node.GetChildOctantForPoint(p);
+                            (childBins[oct] ??= _listPool.Get()).Add(pid);
+                        }
+                        bin.Clear(); _listPool.Return(bin);
+
+                        for (byte oct = 0; oct < 8; oct++)
+                        {
+                            var cb = childBins[oct];
+                            if (cb is null || cb.Count == 0) continue;
+
+                            int childIdx = EnsureChild_NoLock(nodeIdx, oct);
+                            q.Enqueue((childIdx, cb));
+                        }
+                    }
+                }
+            }
+            finally { _treeLock.ExitWriteLock(); }
+
             return outIdx;
         }
+
+
 
         public void UpdateParticle(int id, Point3D pos)
         {
             if (!Bounds.Contains(pos)) throw new ArgumentOutOfRangeException(nameof(pos));
-            Point3D old;
+
+            // Check if the *current* leaf still contains the new position.
+            // If so, we only update coordinates—no reflow needed.
+            int leaf = _particleLeaf[id];
+            bool needsReflow = true;
+            if (leaf >= 0)
+            {
+                var box = _nodes[leaf].Node.BoundingBox;
+                needsReflow = !box.Contains(pos);
+            }
+
             lock (_particleArraysLock)
             {
-                old = _particles[id];
                 _particles[id] = pos;
             }
-            if (!IsInSameLeaf(old, pos)) _particlesToReflow.Enqueue(id);
+
+            if (needsReflow) _particlesToReflow.Enqueue(id);
         }
+
 
         public void RemoveParticle(int id)
         {
             int leaf = _particleLeaf[id];
-            _nodeLocks[leaf].Enter();
-            try
+            if (leaf >= 0)
             {
-                if (_leafParticles.TryGetValue(leaf, out var list))
-                    list.Remove(id);
+                var e = _nodes[leaf];
+                e.Lock.Enter();
+                try
+                {
+                    if (e.Leaf is { Count: > 0 })
+                        LeafRemoveUnlocked(leaf, id);
+                }
+                finally { e.Lock.Exit(); }
             }
-            finally { _nodeLocks[leaf].Exit(); }
 
             lock (_particleArraysLock)
             {
                 _particles[id] = new Point3D(float.NaN, float.NaN, float.NaN);
             }
-            _particleNodeTypes.TryRemove(id, out _);
         }
+
 
         public Point3D[] GetAllParticles()
         {
             lock (_particleArraysLock)
-            {
                 return _particles.ToArray();
-            }
         }
 
         public int[] GetParticlesInRadius(Point3D center, float radius)
         {
             var result = new List<int>();
-            float r2 = radius * radius;
 
             _treeLock.EnterReadLock();
             try
             {
-                var box = new AAABBB(
+                var aabb = new AAABBB(
                     new Point3D(center.X - radius, center.Y - radius, center.Z - radius),
                     new Point3D(center.X + radius, center.Y + radius, center.Z + radius));
 
-                var leaves = new List<int>();
-                FindIntersectingLeaves(_root, box, leaves);
+                var stack = new Stack<int>();
+                stack.Push(0);
 
-                foreach (int leaf in leaves)
+                while (stack.Count > 0)
                 {
-                    if (!_leafParticles.TryGetValue(leaf, out var list)) continue;
-                    SimdSearch.AppendHitsInRadius(center, radius, list, _particles, result);
+                    int idx = stack.Pop();
+                    var e = _nodes[idx];
+                    if (!e.Node.BoundingBox.Intersects(aabb)) continue;
+
+                    if (e.IsLeaf)
+                    {
+                        // Hold the node lock while giving the list to SIMD helper
+                        e.Lock.Enter();
+                        try
+                        {
+                            if (e.Leaf is { Count: > 0 })
+                                SimdSearch.AppendHitsInRadius(center, radius, e.Leaf, _particles, result);
+                        }
+                        finally { e.Lock.Exit(); }
+                    }
+                    else
+                    {
+                        for (int o = 0; o < 8; o++)
+                        {
+                            int c = e.Child[o];
+                            if (c >= 0) stack.Push(c);
+                        }
+                    }
                 }
             }
             finally { _treeLock.ExitReadLock(); }
@@ -154,17 +337,39 @@ namespace ParticleLib.Modern.Models._3D
             _treeLock.EnterReadLock();
             try
             {
-                var leaves = new List<int>();
-                FindIntersectingLeaves(_root, box, leaves);
+                var stack = new Stack<int>();
+                stack.Push(0);
 
-                foreach (int leaf in leaves)
+                while (stack.Count > 0)
                 {
-                    if (!_leafParticles.TryGetValue(leaf, out var list)) continue;
-                    foreach (int pi in list)
+                    int idx = stack.Pop();
+                    var e = _nodes[idx];
+                    if (!e.Node.BoundingBox.Intersects(box)) continue;
+
+                    if (e.IsLeaf)
                     {
-                        var p = _particles[pi];
-                        if (!float.IsNaN(p.X) && box.Contains(p))
-                            result.Add(pi);
+                        e.Lock.Enter();
+                        try
+                        {
+                            if (e.Leaf is { Count: > 0 })
+                            {
+                                foreach (int pi in e.Leaf)
+                                {
+                                    var p = _particles[pi];
+                                    if (!float.IsNaN(p.X) && box.Contains(p))
+                                        result.Add(pi);
+                                }
+                            }
+                        }
+                        finally { e.Lock.Exit(); }
+                    }
+                    else
+                    {
+                        for (int o = 0; o < 8; o++)
+                        {
+                            int c = e.Child[o];
+                            if (c >= 0) stack.Push(c);
+                        }
                     }
                 }
             }
@@ -173,209 +378,346 @@ namespace ParticleLib.Modern.Models._3D
             return result.ToArray();
         }
 
-        public int GetDepth() { _treeLock.EnterReadLock(); try { return _nodes.Max(n => n.Depth); } finally { _treeLock.ExitReadLock(); } }
-        public AAABBB[] GetBoxCloud() { _treeLock.EnterReadLock(); try { return _nodes.Select(n => n.BoundingBox).ToArray(); } finally { _treeLock.ExitReadLock(); } }
+        public int GetDepth()
+        {
+            _treeLock.EnterReadLock();
+            try { return _nodes.Count == 0 ? 0 : _nodes.Max(n => n.Node.Depth); }
+            finally { _treeLock.ExitReadLock(); }
+        }
+
+        public AAABBB[] GetBoxCloud()
+        {
+            _treeLock.EnterReadLock();
+            try
+            {
+                var arr = new AAABBB[_nodes.Count];
+                for (int i = 0; i < _nodes.Count; i++) arr[i] = _nodes[i].Node.BoundingBox;
+                return arr;
+            }
+            finally { _treeLock.ExitReadLock(); }
+        }
 
         public void ProcessParticleReflow()
         {
-            while (_particlesToReflow.TryDequeue(out int pi))
+            while (_particlesToReflow.TryDequeue(out int id))
             {
-                if (float.IsNaN(_particles[pi].X)) continue;
+                if (float.IsNaN(_particles[id].X)) continue;
 
-                int oldLeaf = _particleLeaf[pi];
-
-                _nodeLocks[oldLeaf].Enter();
-                try
+                int oldLeaf = _particleLeaf[id];
+                if (oldLeaf >= 0)
                 {
-                    if (_leafParticles.TryGetValue(oldLeaf, out var list))
-                        list.Remove(pi);
+                    var e = _nodes[oldLeaf];
+                    e.Lock.Enter();
+                    try
+                    {
+                        if (e.Leaf is { Count: > 0 })
+                            LeafRemoveUnlocked(oldLeaf, id);
+                    }
+                    finally { e.Lock.Exit(); }
                 }
-                finally { _nodeLocks[oldLeaf].Exit(); }
 
-                InsertParticle(pi, _particles[pi]);
+                InsertParticle(id, _particles[id]);
             }
         }
+
 
         public void Clear()
         {
             _treeLock.EnterWriteLock();
             try
             {
-                // return every leaf list to the pool
-                foreach (var kv in _leafParticles)
+                foreach (var e in _nodes)
                 {
-                    kv.Value.Clear();
-                    _listPool.Return(kv.Value);
+                    if (e.Leaf != null)
+                    {
+                        e.Leaf.Clear();
+                        _listPool.Return(e.Leaf);
+                    }
+                    for (int i = 0; i < 8; i++) e.Child[i] = -1;
+                    e.Leaf = null;
                 }
-                _leafParticles.Clear();
 
-                _nodeIndices.Clear();
-                _nodes.Clear();
-                _nodeLocks.Clear();
-                _particles.Clear();
-                _particleLeaf.Clear();
+                lock (_particleArraysLock)
+                {
+                    _particles.Clear();
+                    _particleLeaf.Clear();
+                    _indexInLeaf.Clear();
+                }
                 _particlesToReflow.Clear();
-                _particleNodeTypes.Clear();
 
-                // re-add root
+                _nodes.Clear();
+                _root.Leaf = _listPool.Get();
                 _nodes.Add(_root);
-                _nodeIndices[new NodeKey(_root.MortonCode, 0)] = 0;
-                _nodeLocks.Add(new NodeSpinLock());
-                _leafParticles[0] = _listPool.Get();
             }
             finally { _treeLock.ExitWriteLock(); }
         }
 
 
-        // ------------- internal helpers -------------
-
-        private void InsertParticle(int id, Point3D pos)
-        {
-            int current = 0;
-            while (true)
-            {
-                var node = _nodes[current];
-                if (node.Depth >= _maxDepth)
-                {
-                    _nodeLocks[current].Enter();
-                    AddParticleToLeaf(current, id);
-                    _nodeLocks[current].Exit();
-                    return;
-                }
-
-                byte oct = node.GetChildOctantForPoint(pos);
-                if (TryGetChildNode(current, oct, out int child))
-                {
-                    current = child;
-                    continue;
-                }
-
-                _nodeLocks[current].Enter();
-                try
-                {
-                    if (TryGetChildNode(current, oct, out child))
-                    {
-                        current = child;
-                        continue;
-                    }
-                    if (_leafParticles.TryGetValue(current, out var lst) &&
-                        lst.Count >= _maxParticlesPerLeaf)
-                        SplitLeaf(current);
-
-                    if (!TryGetChildNode(current, oct, out child))
-                    {
-                        var newChild = node.CreateChild(oct);
-                        child = AddNode(newChild);
-                    }
-                    current = child;
-                }
-                finally { _nodeLocks[current].Exit(); }
-            }
-        }
-
-        private void AddParticleToLeaf(int nodeIdx, int pid)
-        {
-            var list = _leafParticles.GetOrAdd(nodeIdx, _ => _listPool.Get());
-            list.Add(pid);
-            _particleLeaf[pid] = nodeIdx;
-            _particleNodeTypes[pid] = NodeType.Leaf;
-        }
-        private void SplitLeaf(int nodeIdx)
-        {
-            List<int> parts;
-            _nodeLocks[nodeIdx].Enter();
-            try
-            {
-                if (!_leafParticles.TryRemove(nodeIdx, out parts)) return;
-            }
-            finally { _nodeLocks[nodeIdx].Exit(); }
-
-            if (parts.Count == 0) { _listPool.Return(parts); return; }
-
-            var parent = _nodes[nodeIdx];
-            var byOct = new Dictionary<byte, List<int>>();
-
-            foreach (int pid in parts)
-            {
-                Point3D p;
-                lock (_particleArraysLock)            // NEW: protect _particles[pid]
-                    p = _particles[pid];
-
-                byte oct = parent.GetChildOctantForPoint(p);
-                if (!byOct.TryGetValue(oct, out var list))
-                    byOct[oct] = list = _listPool.Get();
-                list.Add(pid);
-            }
-            parts.Clear(); _listPool.Return(parts);
-
-            foreach (var kv in byOct)
-            {
-                byte oct = kv.Key;
-                var octParts = kv.Value;
-
-                if (!TryGetChildNode(nodeIdx, oct, out int childIdx))
-                {
-                    var child = parent.CreateChild(oct);
-                    childIdx = AddNode(child);
-                }
-
-                var clist = _leafParticles.GetOrAdd(childIdx, _ => _listPool.Get());
-                clist.AddRange(octParts);
-
-                foreach (int pid in octParts) { _particleLeaf[pid] = childIdx; }
-
-                octParts.Clear(); _listPool.Return(octParts);
-            }
-        }
-
-        private int AddNode(OctreeNode n)
-        {
-            int idx = _nodes.Count;
-            _nodes.Add(n);
-            _nodeIndices[new NodeKey(n.MortonCode, n.Depth)] = idx;
-            _nodeLocks.Add(new NodeSpinLock());
-            return idx;
-        }
-
-        private bool TryGetChildNode(int parentIdx, byte oct, out int childIdx)
-        {
-            var parent = _nodes[parentIdx];
-            ulong code = (parent.MortonCode << 3) | oct;
-            var key = new NodeKey(code, (byte)(parent.Depth + 1));
-            return _nodeIndices.TryGetValue(key, out childIdx);
-        }
-
-        private void FindIntersectingLeaves(OctreeNode n, AAABBB box, List<int> res)
-        {
-            int idx = _nodeIndices[new NodeKey(n.MortonCode, n.Depth)];
-            if (!n.BoundingBox.Intersects(box)) return;
-
-            if (_leafParticles.ContainsKey(idx)) res.Add(idx);
-
-            for (byte o = 0; o < 8; o++)
-                if (TryGetChildNode(idx, o, out int child))
-                    FindIntersectingLeaves(_nodes[child], box, res);
-        }
-
-        private bool IsInSameLeaf(Point3D a, Point3D b)
-        {
-            ulong ma = MortonCode.Encode(a, Bounds);
-            ulong mb = MortonCode.Encode(b, Bounds);
-            return MortonCode.CommonPrefixLength(ma, mb) >= 3 * _maxDepth;
-        }
-
         public void Dispose()
         {
             _treeLock.Dispose();
         }
+
+        // ----------------- internals -----------------
+
+        private void InsertParticle(int id, Point3D pos)
+        {
+            int current = 0;
+
+            while (true)
+            {
+                _treeLock.EnterUpgradeableReadLock();
+                try
+                {
+                    var entry = _nodes[current];
+
+                    if (entry.IsLeaf)
+                    {
+                        // Try fast-path insert into this leaf
+                        entry.Lock.Enter();
+                        try
+                        {
+                            if (!entry.IsLeaf)
+                            {
+                                continue; // flipped while we waited
+                            }
+
+                            if (entry.Node.Depth >= _maxDepth || entry.Leaf!.Count < _maxParticlesPerLeaf)
+                            {
+                                LeafAddUnlocked(current, id);
+                                return;
+                            }
+                        }
+                        finally { entry.Lock.Exit(); }
+
+                        // Need to split this leaf
+                        _treeLock.EnterWriteLock();
+                        try
+                        {
+                            entry = _nodes[current];
+                            entry.Lock.Enter();
+                            try
+                            {
+                                if (!entry.IsLeaf)
+                                {
+                                    // already split
+                                }
+                                else if (entry.Node.Depth >= _maxDepth)
+                                {
+                                    LeafAddUnlocked(current, id);
+                                    return;
+                                }
+                                else
+                                {
+                                    // Split: partition payload to 8 bins
+                                    var parts = entry.Leaf!;
+                                    entry.Leaf = null; // becomes internal
+
+                                    List<int>?[] bins = new List<int>?[8];
+
+                                    foreach (int pid in parts)
+                                    {
+                                        Point3D p;
+                                        lock (_particleArraysLock) p = _particles[pid];
+                                        byte oct = entry.Node.GetChildOctantForPoint(p);
+                                        var bin = bins[oct] ??= _listPool.Get();
+                                        bin.Add(pid);
+                                    }
+
+                                    parts.Clear();
+                                    _listPool.Return(parts);
+
+                                    // Create/ensure children and append payload; set indices
+                                    for (byte oct = 0; oct < 8; oct++)
+                                    {
+                                        var bin = bins[oct];
+                                        if (bin is null || bin.Count == 0) continue;
+
+                                        int childIdx = EnsureChild_NoLock(current, oct);
+                                        var child = _nodes[childIdx];
+
+                                        // Append + index bookkeeping
+                                        int baseCount = child.Leaf!.Count;
+                                        child.Leaf.AddRange(bin);
+                                        for (int i = 0; i < bin.Count; i++)
+                                        {
+                                            int pid = bin[i];
+                                            _particleLeaf[pid] = childIdx;
+                                            _indexInLeaf[pid] = baseCount + i;
+                                        }
+
+                                        bin.Clear();
+                                        _listPool.Return(bin);
+                                    }
+                                }
+                            }
+                            finally { entry.Lock.Exit(); }
+
+                            // Descend to the correct child for 'pos'
+                            var parentIdx = current;
+                            var parent = _nodes[parentIdx];
+                            byte go = parent.Node.GetChildOctantForPoint(pos);
+                            int next = parent.Child[go];
+                            if (next < 0) next = EnsureChild_NoLock(parentIdx, go);
+                            current = next;
+                        }
+                        finally { _treeLock.ExitWriteLock(); }
+                    }
+                    else
+                    {
+                        // Internal: descend
+                        byte oct = entry.Node.GetChildOctantForPoint(pos);
+                        int child = entry.Child[oct];
+
+                        if (child >= 0)
+                        {
+                            current = child;
+                            continue;
+                        }
+
+                        _treeLock.EnterWriteLock();
+                        try
+                        {
+                            child = entry.Child[oct];
+                            if (child < 0)
+                                child = EnsureChild_NoLock(current, oct);
+                            current = child;
+                        }
+                        finally { _treeLock.ExitWriteLock(); }
+                    }
+                }
+                finally
+                {
+                    _treeLock.ExitUpgradeableReadLock();
+                }
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void LeafAddUnlocked(int leafIdx, int pid)
+        {
+            var e = _nodes[leafIdx];
+            var list = e.Leaf!;
+            list.Add(pid);
+            _particleLeaf[pid] = leafIdx;
+            _indexInLeaf[pid] = list.Count - 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void LeafRemoveUnlocked(int leafIdx, int pid)
+        {
+            var e = _nodes[leafIdx];
+            var list = e.Leaf!;
+            int idx = _indexInLeaf[pid];
+
+            if (idx < 0 || idx >= list.Count)
+            {
+                // Fallback if index is stale (shouldn't happen, but be defensive)
+                if (list.Remove(pid))
+                {
+                    _indexInLeaf[pid] = -1;
+                    _particleLeaf[pid] = -1;
+                }
+                return;
+            }
+
+            int last = list.Count - 1;
+            int lastPid = list[last];
+            list[idx] = lastPid;
+            list.RemoveAt(last);
+
+            _indexInLeaf[lastPid] = idx;
+            _indexInLeaf[pid] = -1;
+            _particleLeaf[pid] = -1;
+        }
+
+
+        // Create missing child under TREE WRITE lock; returns the child index.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int EnsureChild_NoLock(int parentIdx, byte oct)
+        {
+            var p = _nodes[parentIdx];
+            int existing = p.Child[oct];
+            if (existing >= 0) return existing;
+
+            var childNode = p.Node.CreateChild(oct);
+            var entry = new NodeEntry(childNode, _listPool.Get()); // child starts as leaf
+            int idx = _nodes.Count;
+            _nodes.Add(entry);
+            p.Child[oct] = idx;
+            return idx;
+        }
+
+
+        // Quantize both points into the same depth cell and compare integer bins.
+        // This matches the implicit mid-point splitting of the AAABBB.GetOctant path.
+        private bool IsInSameLeaf(Point3D a, Point3D b)
+        {
+            int depth = Math.Min(_maxDepth, 30); // 2^30 bins still safe for float range here
+            if (depth == 0) return true;
+
+            var (ax, ay, az) = Quantize(a, depth);
+            var (bx, by, bz) = Quantize(b, depth);
+            return ax == bx && ay == by && az == bz;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private (int x, int y, int z) Quantize(Point3D p, int depth)
+        {
+            int scale = 1 << depth; // depth <= 30 guarded above
+            var min = Bounds.Min; var max = Bounds.Max;
+
+            double nx = (p.X - min.X) / Math.Max(1e-30, (double)(max.X - min.X));
+            double ny = (p.Y - min.Y) / Math.Max(1e-30, (double)(max.Y - min.Y));
+            double nz = (p.Z - min.Z) / Math.Max(1e-30, (double)(max.Z - min.Z));
+
+            // Clamp to [0, 1) so the max value lands in the last bin
+            nx = nx <= 0 ? 0 : (nx >= 1 ? BitDecrementOne() : nx);
+            ny = ny <= 0 ? 0 : (ny >= 1 ? BitDecrementOne() : ny);
+            nz = nz <= 0 ? 0 : (nz >= 1 ? BitDecrementOne() : nz);
+
+            int ix = (int)(nx * scale);
+            int iy = (int)(ny * scale);
+            int iz = (int)(nz * scale);
+            if (ix >= scale) ix = scale - 1; // paranoia
+            if (iy >= scale) iy = scale - 1;
+            if (iz >= scale) iz = scale - 1;
+            return (ix, iy, iz);
+
+            static double BitDecrementOne() => BitConverter.Int64BitsToDouble(BitConverter.DoubleToInt64Bits(1.0) - 1);
+        }
+
+        // ------------- storage for each node (internal) -------------
+        private sealed class NodeEntry
+        {
+            public OctreeNode Node;          // bbox + depth (Morton ignored)
+            public readonly int[] Child;     // child indices; -1 if missing
+            public List<int>? Leaf;          // non-null => leaf payload
+            public readonly NodeSpinLock Lock = new NodeSpinLock();
+
+            public bool IsLeaf => Leaf != null;
+
+            public NodeEntry(OctreeNode node, List<int>? leaf)
+            {
+                Node = node;
+                Leaf = leaf;
+                Child = new int[8];
+                for (int i = 0; i < 8; i++) Child[i] = -1;
+            }
+        }
     }
 
     // ---------- tiny spin lock for per-node writes ----------
-    internal struct NodeSpinLock
+    // Reference type to avoid value-copy bugs from list indexers.
+    internal sealed class NodeSpinLock
     {
         private int _state;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Enter() { var s = new SpinWait(); while (Interlocked.CompareExchange(ref _state, 1, 0) != 0) s.SpinOnce(); }
+        public void Enter()
+        {
+            var s = new SpinWait();
+            while (Interlocked.CompareExchange(ref _state, 1, 0) != 0) s.SpinOnce();
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Exit() { Volatile.Write(ref _state, 0); }
     }

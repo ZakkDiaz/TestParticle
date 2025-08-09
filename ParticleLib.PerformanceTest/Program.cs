@@ -27,7 +27,7 @@ namespace ParticleLib.PerformanceTest
     class Program
     {
         // ---------- CONFIG ----------
-        private const int ParticleCount = 100_000;
+        private const int ParticleCount = 100000;
         private const int Iterations = 3;
         private const int RandSeed = 42;
         private const float Min = -100f;
